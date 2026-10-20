@@ -5,8 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>V. - Web Rhythm Game</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #05070a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
-        canvas { display: block; object-fit: contain; max-width: 100%; max-height: 100%; box-shadow: 0 0 30px rgba(80, 200, 255, 0.15); position: relative; z-index: 2; }
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background-color: #05070a; overflow: hidden; 
+            display: flex; justify-content: center; align-items: center; 
+            touch-action: none; user-select: none; -webkit-user-select: none; 
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; 
+        }
+        canvas { 
+            display: block; 
+            max-width: 100%; max-height: 100%; 
+            object-fit: contain; 
+            box-shadow: 0 0 30px rgba(80, 200, 255, 0.15); 
+            position: relative; z-index: 2; 
+        }
         
         #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         #transition-mask.show { opacity: 1; pointer-events: auto; }
@@ -39,7 +51,14 @@
         .switch-btn { font-size: 12px; padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #ccc; border-radius: 12px; cursor: pointer; margin-left: 15px; transition: all 0.2s; z-index: 10; position: relative;}
         .switch-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
-        #start-screen { display: none; position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10; cursor: pointer;}
+        #start-screen { 
+            display: none; position: absolute; top:0; left:0; width:100%; height:100%; 
+            z-index: 10; cursor: pointer;
+            background-image: url('cover.jpg');
+            background-size: cover;
+            background-position: center;
+            background-color: #05070a;
+        }
 
         @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
@@ -79,8 +98,7 @@
     </div>
 
     <div id="start-screen">
-        <img src="cover.jpg" alt="Cover" onerror="this.style.display='none'" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; opacity:0.9; z-index:0;">
-        <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.7)); z-index:1;"></div>
+        <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)); z-index:1;"></div>
 
         <div class="menu-anim" style="animation-delay: 0.1s; position: absolute; top: 20px; left: 20px; display: flex; align-items: center; background: rgba(10, 15, 25, 0.6); padding: 10px 15px 10px 10px; border-radius: 12px; z-index: 20; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
             <img id="userAvatarDisplay" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #50c8ff; margin-right: 12px; background:#333;">
@@ -102,14 +120,11 @@
     <audio id="bgm" src="V.mp3" preload="auto"></audio>
 
 <script>
-// ================= 核心状态锁 =================
 let isGameLoopRunning = false; 
 let isPlaying = false;
 let startTime = 0;
-let audioStarted = false;
 let lastLaneHitTime = [0, 0, 0, 0];
 
-// ================= 用户系统 =================
 let currentUser = null;
 let tempAvatarBase64 = '';
 
@@ -188,7 +203,6 @@ function doLogin() {
 window.addEventListener('DOMContentLoaded', checkLogin);
 window.addEventListener('load', checkLogin);
 
-// ================= 游戏常量与状态 =================
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const bgm = document.getElementById('bgm');
@@ -209,7 +223,7 @@ const SCROLL_SPEED = 750.0;
 const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
-const CHART_OFFSET = -0.4;
+const CHART_OFFSET = -0.2; // 稍微延后一点音符，防止视觉抢跑
 
 let state = 'MENU'; 
 let game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
@@ -219,7 +233,6 @@ let reqAnimId = null;
 
 let pauseClickTimer = null;
 let isConfirmingPause = false;
-let resumeCountdown = 0; 
 
 function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
 function easeOutQuad(t) { return t * (2 - t); }
@@ -274,7 +287,6 @@ function generateBeatmap() {
     for (i = 0; i < 12; i++) { t = 204.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
     AddNote(209.0, 1, 1); AddNote(209.4, 2, 2); AddNote(209.8, 3, 3); 
     
-    // 镜像配置X：延长到 28 拍（11.2 秒）
     for (i = 0; i < 50; i++) { 
         t = 210.0 + i * 0.4; 
         if (i < 28) {
@@ -299,11 +311,9 @@ function generateBeatmap() {
 function resetGameData() {
     game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
     generateBeatmap();
-    resumeCountdown = 0;
     displayScore = 0;
     displayAcc = 100.00;
     feedbackYOffset = 0;
-    audioStarted = false;
     isPlaying = false;
 }
 
@@ -333,7 +343,6 @@ function startGame() {
         lastTime = performance.now();
         
         state = 'GAME';
-        resumeCountdown = 3.0;
         
         isGameLoopRunning = true;
         if (reqAnimId) cancelAnimationFrame(reqAnimId);
@@ -348,7 +357,6 @@ function spawnEffect(lane, type) {
 
 function judgeLane(lane) {
     let now = performance.now();
-    // 30ms 防抖，防止一次点击判定多次
     if (now - lastLaneHitTime[lane] < 30) return;
     lastLaneHitTime[lane] = now;
 
@@ -375,10 +383,11 @@ function judgeLane(lane) {
 }
 
 pauseBtn.addEventListener('pointerdown', handlePauseClick);
+pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
 
 function handlePauseClick(e) {
     if (e) { e.stopPropagation(); e.preventDefault(); }
-    if (state !== 'GAME' || resumeCountdown > 0) return;
+    if (state !== 'GAME' || game.clock < 0) return;
 
     if (!isConfirmingPause) {
         isConfirmingPause = true;
@@ -416,8 +425,8 @@ function resumeGame() {
     pauseModal.classList.remove('show');
     setTimeout(() => {
         state = 'GAME';
-        resumeCountdown = 3.0;
-        isPlaying = false; // 恢复时重新倒计时
+        game.clock = -3.0; // 恢复时强制重新倒计时
+        isPlaying = false; 
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -433,7 +442,6 @@ function restartGame() {
         bgm.currentTime = 0;
         bgm.pause();
         resetGameData();
-        resumeCountdown = 3.0;
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -457,14 +465,16 @@ function quitGame() {
 function handleGlobalStart(e) {
     if (state === 'MENU' && startScreen.style.display !== 'none') {
         if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
+        if (e.cancelable) e.preventDefault();
         startGame();
     }
 }
 window.addEventListener('pointerdown', handleGlobalStart);
+window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
-// 统一使用 pointerdown 处理打歌，去掉 touchstart 防止双发
 canvas.addEventListener('pointerdown', e => {
-    if (state === 'GAME' && resumeCountdown <= 0) {
+    if (e.cancelable) e.preventDefault();
+    if (state === 'GAME' && game.clock >= 0) {
         const rect = canvas.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
         let lane = Math.floor((x - TRACK_X) / LANE_W);
@@ -484,11 +494,31 @@ canvas.addEventListener('pointerdown', e => {
     }
 });
 
+canvas.addEventListener('touchstart', e => {
+    if (e.cancelable) e.preventDefault();
+    if (state === 'GAME' && game.clock >= 0) {
+        const rect = canvas.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const x = (touch.clientX - rect.left) / rect.width * SCREEN_W;
+            let lane = Math.floor((x - TRACK_X) / LANE_W);
+            if (lane >= 0 && lane < 4) {
+                let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
+                if (Math.abs(x - laneCenter) <= 70) {
+                    game.keyHold[lane] = true; 
+                    judgeLane(lane);
+                }
+            }
+        }
+    }
+}, { passive: false });
+
 canvas.addEventListener('pointerup', () => { game.keyHold = [false,false,false,false]; });
+canvas.addEventListener('touchend', () => { game.keyHold = [false,false,false,false]; });
 canvas.addEventListener('pointercancel', () => { game.keyHold = [false,false,false,false]; });
 
 window.addEventListener('keydown', e => {
-    if (state === 'GAME' && resumeCountdown <= 0 && !e.repeat) {
+    if (state === 'GAME' && game.clock >= 0 && !e.repeat) {
         if (e.key === 'c' || e.key === 'C') { game.keyHold[0]=true; judgeLane(0); }
         if (e.key === 'v' || e.key === 'V') { game.keyHold[1]=true; judgeLane(1); }
         if (e.key === 'b' || e.key === 'B') { game.keyHold[2]=true; judgeLane(2); }
@@ -523,33 +553,38 @@ function gameLoop(time) {
     let dt = (time - lastTime) / 1000; lastTime = time;
     if (dt > 0.1) dt = 0.1; 
     
-    if (resumeCountdown > 0) {
-        resumeCountdown -= dt;
-        if (resumeCountdown <= 0) {
-            resumeCountdown = 0;
+    if (game.clock < 0) {
+        game.clock += dt;
+        
+        if (game.clock >= 0) {
+            game.clock = 0;
             if (bgm && bgm.paused) {
                 bgm.currentTime = 0;
-                bgm.play().catch(e => console.log("等待交互播放音频"));
+                bgm.play().then(() => {
+                    startTime = performance.now();
+                    isPlaying = true;
+                }).catch(e => {
+                    startTime = performance.now();
+                    isPlaying = true;
+                });
+            } else {
+                startTime = performance.now();
+                isPlaying = true;
             }
-            // 倒计时结束瞬间，校准开始时间和时钟
-            startTime = performance.now();
-            isPlaying = true;
         }
-        drawGame(dt);
-        reqAnimId = requestAnimationFrame(gameLoop);
-        return;
-    }
-
-    if (isPlaying) {
-        let now = performance.now();
-        
-        // 核心防卡死：即使音乐没加载出来或报错，用纯系统时间驱动时钟！
-        game.clock = (now - startTime) / 1000;
-
-        // 音频正常时平滑同步
-        if (bgm && bgm.currentTime > 0 && !audioStarted) {
-            audioStarted = true;
-            startTime = now - (bgm.currentTime * 1000); // 对齐 startTime 实现完美音画同步
+    } else if (isPlaying) {
+        // 混合时钟策略
+        if (bgm && bgm.currentTime > 0) {
+            // 如果音频正常在走，以真实的音频时间为绝对准绳
+            game.clock = bgm.currentTime;
+            let now = performance.now();
+            // 如果发生严重卡顿导致跨度变大，强制对齐 startTime
+            if (Math.abs((now - startTime) / 1000 - game.clock) > 0.1) {
+                startTime = now - game.clock * 1000;
+            }
+        } else {
+            // 如果音频还没出声，用系统时间防卡死
+            game.clock = (performance.now() - startTime) / 1000;
         }
 
         let phase = (game.clock % 0.4 + 0.4) % 0.4;
@@ -867,18 +902,7 @@ function drawGame(dt) {
         }
     }
 
-    if (resumeCountdown > 0) {
-        let cd = Math.ceil(resumeCountdown);
-        if (cd >= 1 && cd <= 3) {
-            ctx.textAlign = 'center'; 
-            ctx.font = 'bold 180px "Microsoft YaHei"'; 
-            ctx.fillStyle = '#ffe664'; 
-            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
-            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
-            ctx.shadowBlur = 0;
-        }
-    } 
-    else if (game.clock < 0) {
+    if (game.clock < 0) {
         let cd = Math.ceil(-game.clock);
         if (cd >= 1 && cd <= 3) {
             ctx.textAlign = 'center'; 
