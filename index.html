@@ -51,7 +51,6 @@
     <div id="loading-text">Loading...</div>
     <div id="transition-mask"></div>
 
-    <!-- 去掉内联 onclick，改用 JS 事件绑定防连点 -->
     <div id="pauseBtn">⏸</div>
 
     <div id="loginModal" class="modal" onclick="event.stopPropagation()">
@@ -104,7 +103,7 @@
 
 <script>
 // ================= 全局状态防护锁 =================
-let isGameLoopRunning = false; // 彻底杜绝多个游戏循环同时运行导致的卡顿和自动暂停
+let isGameLoopRunning = false; 
 
 // ================= 用户系统 & 最高分 =================
 let currentUser = null;
@@ -117,7 +116,6 @@ function updateHighScoreUI() {
 }
 
 function checkLogin() {
-    // 页面一加载，立刻干掉加载文字和黑屏遮罩
     document.getElementById('loading-text').style.display = 'none';
     document.getElementById('transition-mask').classList.remove('show');
 
@@ -145,7 +143,7 @@ function showStartScreen() {
 }
 
 function switchUser(e) {
-    e.stopPropagation(); // 阻止事件穿透
+    e.stopPropagation();
     localStorage.removeItem('rhythm_user');
     currentUser = null; tempAvatarBase64 = '';
     document.getElementById('avatarPreview').style.display = 'none';
@@ -183,7 +181,6 @@ function doLogin() {
     setTimeout(() => { showStartScreen(); }, 300);
 }
 
-// 绑定 DOMContentLoaded 和 load，双保险，立刻隐藏加载文字
 window.addEventListener('DOMContentLoaded', checkLogin);
 window.addEventListener('load', checkLogin);
 
@@ -317,15 +314,20 @@ function transitionTo(nextState, callback) {
 
 function startGame() {
     if (state !== 'MENU') return;
-    state = 'LOADING'; // 锁死状态，防止多次点击启动多个循环
+    state = 'LOADING'; 
     document.getElementById('loading-text').style.display = 'none';
     startScreen.style.display = 'none';
     
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
-        bgm.currentTime = 0; bgm.play().catch(e => console.log("等待交互播放音频"));
+        bgm.currentTime = 0; 
+        bgm.pause(); // 彻底暂停，防止提前触发时间同步
+        
         resetGameData();
         lastTime = performance.now();
+        
+        state = 'GAME';
+        resumeCountdown = 3.0; // 统一走倒计时流程
         
         isGameLoopRunning = true;
         if (reqAnimId) cancelAnimationFrame(reqAnimId);
@@ -361,15 +363,11 @@ function judgeLane(lane) {
     }
 }
 
-// 纯 JS 绑定暂停按钮，防止多次触发
 pauseBtn.addEventListener('pointerdown', handlePauseClick);
 pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
 
 function handlePauseClick(e) {
-    if (e) {
-        e.stopPropagation();
-        e.preventDefault(); // 阻止触摸事件穿透
-    }
+    if (e) { e.stopPropagation(); e.preventDefault(); }
     if (state !== 'GAME' || resumeCountdown > 0) return;
 
     if (!isConfirmingPause) {
@@ -396,7 +394,7 @@ function handlePauseClick(e) {
 function triggerPause() {
     if (state !== 'GAME') return;
     state = 'PAUSED';
-    isGameLoopRunning = false; // 关停循环
+    isGameLoopRunning = false; 
     if (reqAnimId) cancelAnimationFrame(reqAnimId);
     bgm.pause();
     pauseModal.classList.add('show');
@@ -445,25 +443,30 @@ function quitGame() {
     });
 }
 
-// ================= 全局触屏与点击事件 (完美兼容手机/平板/电脑) =================
+// ================= 全局触屏与点击事件 =================
 function handleGlobalStart(e) {
     if (state === 'MENU' && startScreen.style.display !== 'none') {
-        // 如果点的是按钮、输入框或弹窗，不触发
         if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
         startGame();
     }
 }
-// 同时监听 mouse/pen (pointerdown) 和 纯触屏 (touchstart)
 window.addEventListener('pointerdown', handleGlobalStart);
 window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
-// 画布点击判定
+// 优化点击判定，缩小横向宽度并支持多指
 canvas.addEventListener('pointerdown', e => {
     if (state === 'GAME' && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
         let lane = Math.floor((x - TRACK_X) / LANE_W);
-        if (lane >= 0 && lane < 4) { game.keyHold[lane] = true; judgeLane(lane); }
+        
+        if (lane >= 0 && lane < 4) {
+            let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
+            if (Math.abs(x - laneCenter) <= 70) { // 限制中心 70px 内
+                game.keyHold[lane] = true; 
+                judgeLane(lane);
+            }
+        }
     } else if (state === 'RESULT') {
         const rect = canvas.getBoundingClientRect();
         const y = (e.clientY - rect.top) / rect.height * SCREEN_H;
@@ -471,13 +474,24 @@ canvas.addEventListener('pointerdown', e => {
         if (y > resultButtonY - 30 && y < resultButtonY + 30 && x > SCREEN_W/2 - 100 && x < SCREEN_W/2 + 100) returnToMenu();
     }
 });
+
+// 触屏多点判定
 canvas.addEventListener('touchstart', e => {
     if (state === 'GAME' && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        const x = (touch.clientX - rect.left) / rect.width * SCREEN_W;
-        let lane = Math.floor((x - TRACK_X) / LANE_W);
-        if (lane >= 0 && lane < 4) { game.keyHold[lane] = true; judgeLane(lane); }
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const x = (touch.clientX - rect.left) / rect.width * SCREEN_W;
+            let lane = Math.floor((x - TRACK_X) / LANE_W);
+            
+            if (lane >= 0 && lane < 4) {
+                let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
+                if (Math.abs(x - laneCenter) <= 70) {
+                    game.keyHold[lane] = true; 
+                    judgeLane(lane);
+                }
+            }
+        }
     }
 }, { passive: false });
 
@@ -517,7 +531,6 @@ function returnToMenu() {
 
 // ================= 游戏主循环 =================
 function gameLoop(time) {
-    // 双重校验：只要状态不对或者循环没开启，直接退出，绝对不卡顿
     if (!isGameLoopRunning || state !== 'GAME') return;
     
     let dt = (time - lastTime) / 1000; lastTime = time;
@@ -825,11 +838,12 @@ function drawGame(dt) {
         if (game.clock < 211.5) fogAlpha = (game.clock - 210.0) / 1.5; 
         else if (game.clock > 228.5) fogAlpha = (230.0 - game.clock) / 1.5; 
         else fogAlpha = 1.0;
-        fogAlpha = Math.min(1.0, Math.max(0.0, fogAlpha)) * 0.75; 
+        // 透明度从0.75加到0.82，收缩从90加到100
+        fogAlpha = Math.min(1.0, Math.max(0.0, fogAlpha)) * 0.82; 
         
         if (fogAlpha > 0) {
             let fogProgress = (game.clock - 210.0) / 20.0;
-            let shrink = easeOutQuad(fogProgress) * 90; 
+            let shrink = easeOutQuad(fogProgress) * 100; 
             
             let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
             gradTop.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
