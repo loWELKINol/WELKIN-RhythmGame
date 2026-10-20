@@ -124,7 +124,13 @@ let isGameLoopRunning = false;
 let isPlaying = false;
 let clockAnchor = 0;
 let audioStarted = false;
+let audioUnlocked = false;
 let lastLaneHitTime = [0, 0, 0, 0];
+
+// 暂停/恢复快照
+let resumeCountdown = 0;
+let pausedClock = 0;
+let pausedAudioPos = 0;
 
 let currentUser = null;
 let tempAvatarBase64 = '';
@@ -225,7 +231,7 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = 0.5;   // 音乐在 clock 到达该秒数后才启动
+const MUSIC_DELAY = 1.0;   // 音乐在 clock 到达该秒数后才启动（原 0.5，按你要求共延迟 1 秒）
 const SONG_DURATION = 242.0;
 
 let state = 'MENU'; 
@@ -250,6 +256,23 @@ function resize() {
     canvas.style.width = SCREEN_W * scale + 'px'; canvas.style.height = SCREEN_H * scale + 'px';
 }
 window.addEventListener('resize', resize); resize();
+
+// ====== 音频解锁（必须在用户手势同步栈里调用一次 play） ======
+function unlockAudio() {
+    if (audioUnlocked) return;
+    bgm.muted = true;
+    const p = bgm.play();
+    if (p && p.then) {
+        p.then(() => {
+            bgm.pause();
+            bgm.currentTime = 0;
+            bgm.muted = false;
+            audioUnlocked = true;
+        }).catch(() => {
+            bgm.muted = false;
+        });
+    }
+}
 
 function AddNote(time, lane, startLane) {
     game.notes.push({ time: time + CHART_OFFSET, lane: lane, startLane: startLane, judged: false, is_chord: false });
@@ -320,6 +343,9 @@ function resetGameData() {
     isPlaying = false;
     audioStarted = false;
     clockAnchor = 0;
+    resumeCountdown = 0;
+    pausedClock = 0;
+    pausedAudioPos = 0;
     lastLaneHitTime = [0, 0, 0, 0];
 }
 
@@ -393,7 +419,7 @@ pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
 
 function handlePauseClick(e) {
     if (e) { e.stopPropagation(); e.preventDefault(); }
-    if (state !== 'GAME' || game.clock < 0) return;
+    if (state !== 'GAME' || game.clock < 0 || resumeCountdown > 0) return;
 
     if (!isConfirmingPause) {
         isConfirmingPause = true;
@@ -421,6 +447,8 @@ function triggerPause() {
     state = 'PAUSED';
     isGameLoopRunning = false; 
     if (reqAnimId) cancelAnimationFrame(reqAnimId);
+    pausedClock = game.clock;
+    try { pausedAudioPos = bgm.currentTime; } catch(e) { pausedAudioPos = 0; }
     bgm.pause();
     pauseModal.classList.add('show');
 }
@@ -431,9 +459,7 @@ function resumeGame() {
     pauseModal.classList.remove('show');
     setTimeout(() => {
         state = 'GAME';
-        game.clock = -3.0;
-        isPlaying = false;
-        audioStarted = false;
+        resumeCountdown = 3.0;   // 3-2-1 恢复倒计时
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -473,6 +499,7 @@ function handleGlobalStart(e) {
     if (state === 'MENU' && startScreen.style.display !== 'none') {
         if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
         if (e.cancelable) e.preventDefault();
+        unlockAudio();   // 同步手势栈里解锁音频
         startGame();
     }
 }
@@ -481,7 +508,7 @@ window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
 canvas.addEventListener('pointerdown', e => {
     if (e.cancelable) e.preventDefault();
-    if (state === 'GAME' && game.clock >= 0) {
+    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
         let lane = Math.floor((x - TRACK_X) / LANE_W);
@@ -503,7 +530,7 @@ canvas.addEventListener('pointerdown', e => {
 
 canvas.addEventListener('touchstart', e => {
     if (e.cancelable) e.preventDefault();
-    if (state === 'GAME' && game.clock >= 0) {
+    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
@@ -525,7 +552,7 @@ canvas.addEventListener('touchend', () => { game.keyHold = [false,false,false,fa
 canvas.addEventListener('pointercancel', () => { game.keyHold = [false,false,false,false]; });
 
 window.addEventListener('keydown', e => {
-    if (state === 'GAME' && game.clock >= 0 && !e.repeat) {
+    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0 && !e.repeat) {
         if (e.key === 'c' || e.key === 'C') { game.keyHold[0]=true; judgeLane(0); }
         if (e.key === 'v' || e.key === 'V') { game.keyHold[1]=true; judgeLane(1); }
         if (e.key === 'b' || e.key === 'B') { game.keyHold[2]=true; judgeLane(2); }
@@ -560,8 +587,39 @@ function gameLoop(time) {
     let dt = (time - lastTime) / 1000; lastTime = time;
     if (dt > 0.1) dt = 0.1; 
     
+    // ===== 恢复倒计时（暂停恢复专用） =====
+    if (resumeCountdown > 0) {
+        resumeCountdown -= dt;
+        if (resumeCountdown <= 0) {
+            // 倒计时结束：时钟与音频从暂停点继续
+            clockAnchor = performance.now() - pausedClock * 1000;
+            game.clock = pausedClock;
+            if (pausedClock >= MUSIC_DELAY && bgm.readyState >= 2) {
+                try { bgm.currentTime = pausedAudioPos; } catch(e) {}
+                bgm.muted = false;
+                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+                audioStarted = true;
+            } else {
+                audioStarted = false;
+            }
+        }
+        drawGame(dt);
+        // 叠加恢复倒计时数字
+        let cd = Math.ceil(resumeCountdown);
+        if (cd >= 1 && cd <= 3) {
+            ctx.textAlign = 'center'; 
+            ctx.font = 'bold 180px "Microsoft YaHei"'; 
+            ctx.fillStyle = '#ffe664'; 
+            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
+            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
+            ctx.shadowBlur = 0;
+        }
+        reqAnimId = requestAnimationFrame(gameLoop);
+        return;
+    }
+
     if (game.clock < 0) {
-        // 倒计时阶段：本地累加
+        // 初次倒计时阶段：本地累加
         game.clock += dt;
         if (game.clock >= 0) {
             game.clock = 0;
@@ -574,13 +632,16 @@ function gameLoop(time) {
         // 主时钟：纯本地 performance.now() 驱动，不读 bgm.currentTime
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        // 音乐延迟启动
-        if (!audioStarted && game.clock >= MUSIC_DELAY) {
+        // 音乐延迟启动：clock 到达 MUSIC_DELAY 且音频就绪才播
+        if (!audioStarted && game.clock >= MUSIC_DELAY && bgm.readyState >= 2) {
             audioStarted = true;
-            if (bgm) {
-                bgm.currentTime = 0;
-                bgm.play().catch(e => console.warn("音乐播放失败:", e));
-            }
+            bgm.muted = false;
+            bgm.currentTime = 0;
+            const p = bgm.play();
+            if (p && p.catch) p.catch(e => {
+                console.warn("音乐播放失败:", e);
+                audioStarted = false;   // 下一帧重试
+            });
         }
 
         let phase = (game.clock % 0.4 + 0.4) % 0.4;
