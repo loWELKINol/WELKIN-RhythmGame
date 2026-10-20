@@ -231,7 +231,8 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = 0;     // 音乐从 clock=0 立即起播
+const MUSIC_DELAY = 0;       // 音乐从 clock=0 立即起播
+const CHART_DELAY = 1.0;     // 谱面整体后移 1 秒，让音符晚于音乐到达判定线
 const SONG_DURATION = 242.0;
 
 let state = 'MENU'; 
@@ -392,11 +393,14 @@ function judgeLane(lane) {
     if (now - lastLaneHitTime[lane] < 30) return;
     lastLaneHitTime[lane] = now;
 
+    // 使用谱面时钟（game.clock 减去 CHART_DELAY），与音符绘制保持一致
+    let noteClock = game.clock - CHART_DELAY;
+
     let bestIdx = -1, bestDt = 999;
     for (let i = 0; i < game.notes.length; i++) {
         let n = game.notes[i];
         if (n.judged || n.lane !== lane) continue;
-        let dt = Math.abs(n.time - game.clock);
+        let dt = Math.abs(n.time - noteClock);
         if (dt <= BAD_WINDOW && dt < bestDt) { bestDt = dt; bestIdx = i; }
     }
     if (bestIdx !== -1) {
@@ -459,7 +463,7 @@ function resumeGame() {
     pauseModal.classList.remove('show');
     setTimeout(() => {
         state = 'GAME';
-        resumeCountdown = 3.0;   // 3-2-1 恢复倒计时
+        resumeCountdown = 3.0;
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -499,7 +503,7 @@ function handleGlobalStart(e) {
     if (state === 'MENU' && startScreen.style.display !== 'none') {
         if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
         if (e.cancelable) e.preventDefault();
-        unlockAudio();   // 同步手势栈里解锁音频
+        unlockAudio();
         startGame();
     }
 }
@@ -591,7 +595,6 @@ function gameLoop(time) {
     if (resumeCountdown > 0) {
         resumeCountdown -= dt;
         if (resumeCountdown <= 0) {
-            // 倒计时结束：时钟与音频从暂停点继续
             clockAnchor = performance.now() - pausedClock * 1000;
             game.clock = pausedClock;
             if (pausedClock >= MUSIC_DELAY && bgm.readyState >= 2) {
@@ -604,7 +607,6 @@ function gameLoop(time) {
             }
         }
         drawGame(dt);
-        // 叠加恢复倒计时数字
         let cd = Math.ceil(resumeCountdown);
         if (cd >= 1 && cd <= 3) {
             ctx.textAlign = 'center'; 
@@ -619,7 +621,6 @@ function gameLoop(time) {
     }
 
     if (game.clock < 0) {
-        // 初次倒计时阶段：本地累加
         game.clock += dt;
         if (game.clock >= 0) {
             game.clock = 0;
@@ -629,10 +630,9 @@ function gameLoop(time) {
             if (bgm) { bgm.pause(); bgm.currentTime = 0; }
         }
     } else if (isPlaying) {
-        // 主时钟：纯本地 performance.now() 驱动，不读 bgm.currentTime
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        // 音乐启动：MUSIC_DELAY=0 时 clock 一到 0 就播
+        // 音乐从 clock = MUSIC_DELAY 起播（当前 0，即 clock 一正就播）
         if (!audioStarted && game.clock >= MUSIC_DELAY && bgm.readyState >= 2) {
             audioStarted = true;
             bgm.muted = false;
@@ -640,7 +640,7 @@ function gameLoop(time) {
             const p = bgm.play();
             if (p && p.catch) p.catch(e => {
                 console.warn("音乐播放失败:", e);
-                audioStarted = false;   // 下一帧重试
+                audioStarted = false;
             });
         }
 
@@ -663,9 +663,17 @@ function gameLoop(time) {
             if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
         }
 
-        for (let n of game.notes) { if (!n.judged && game.clock > n.time + BAD_WINDOW) { n.judged = true; game.miss++; game.combo = 0; game.feedback = "MISS"; game.feedbackType = 'M'; game.feedbackTimer = 0.6; feedbackYOffset = 0; } }
+        // Miss 检测：使用谱面时钟
+        let noteClock = game.clock - CHART_DELAY;
+        for (let n of game.notes) { 
+            if (!n.judged && noteClock > n.time + BAD_WINDOW) { 
+                n.judged = true; game.miss++; game.combo = 0; 
+                game.feedback = "MISS"; game.feedbackType = 'M'; 
+                game.feedbackTimer = 0.6; feedbackYOffset = 0; 
+            } 
+        }
 
-        if (game.clock > SONG_DURATION + MUSIC_DELAY) {
+        if (game.clock > SONG_DURATION + MUSIC_DELAY + CHART_DELAY) {
             bgm.pause(); state = 'RESULT';
             isGameLoopRunning = false;
             pauseBtn.style.display = 'none';
@@ -751,9 +759,12 @@ function drawGame(dt) {
     ctx.fillRect(TRACK_X, JUDGE_Y - 2, TRACK_W, 4);
     ctx.shadowBlur = 0; 
 
+    // 谱面时钟：音符晚 CHART_DELAY 秒到达判定线
+    let noteClock = game.clock - CHART_DELAY;
+
     for (let n of game.notes) {
         if (n.judged) continue;
-        let yPos = JUDGE_Y - (n.time - game.clock) * SCROLL_SPEED;
+        let yPos = JUDGE_Y - (n.time - noteClock) * SCROLL_SPEED;
         if (yPos < -NOTE_H*4 || yPos > SCREEN_H + NOTE_H*4) continue;
 
         let progress = Math.max(0, Math.min(1, (yPos - (-NOTE_H)) / (JUDGE_Y - (-NOTE_H))));
@@ -819,7 +830,7 @@ function drawGame(dt) {
     }
 
     if (game.clock >= 0) {
-        let totalDuration = SONG_DURATION + MUSIC_DELAY;
+        let totalDuration = SONG_DURATION + MUSIC_DELAY + CHART_DELAY;
         let prog = Math.max(0, Math.min(1, game.clock / totalDuration));
         
         let barX = TRACK_X;
