@@ -122,7 +122,8 @@
 <script>
 let isGameLoopRunning = false; 
 let isPlaying = false;
-let startTime = 0;
+let clockAnchor = 0;
+let audioStarted = false;
 let lastLaneHitTime = [0, 0, 0, 0];
 
 let currentUser = null;
@@ -223,7 +224,9 @@ const SCROLL_SPEED = 750.0;
 const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
-const CHART_OFFSET = -0.2; // 稍微延后一点音符，防止视觉抢跑
+const CHART_OFFSET = -0.2;
+const MUSIC_DELAY = 0.5;   // 音乐在 clock 到达该秒数后才启动
+const SONG_DURATION = 242.0;
 
 let state = 'MENU'; 
 let game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
@@ -315,6 +318,9 @@ function resetGameData() {
     displayAcc = 100.00;
     feedbackYOffset = 0;
     isPlaying = false;
+    audioStarted = false;
+    clockAnchor = 0;
+    lastLaneHitTime = [0, 0, 0, 0];
 }
 
 function transitionTo(nextState, callback) {
@@ -425,8 +431,9 @@ function resumeGame() {
     pauseModal.classList.remove('show');
     setTimeout(() => {
         state = 'GAME';
-        game.clock = -3.0; // 恢复时强制重新倒计时
-        isPlaying = false; 
+        game.clock = -3.0;
+        isPlaying = false;
+        audioStarted = false;
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -554,37 +561,26 @@ function gameLoop(time) {
     if (dt > 0.1) dt = 0.1; 
     
     if (game.clock < 0) {
+        // 倒计时阶段：本地累加
         game.clock += dt;
-        
         if (game.clock >= 0) {
             game.clock = 0;
-            if (bgm && bgm.paused) {
-                bgm.currentTime = 0;
-                bgm.play().then(() => {
-                    startTime = performance.now();
-                    isPlaying = true;
-                }).catch(e => {
-                    startTime = performance.now();
-                    isPlaying = true;
-                });
-            } else {
-                startTime = performance.now();
-                isPlaying = true;
-            }
+            clockAnchor = performance.now();
+            isPlaying = true;
+            audioStarted = false;
+            if (bgm) { bgm.pause(); bgm.currentTime = 0; }
         }
     } else if (isPlaying) {
-        // 混合时钟策略
-        if (bgm && bgm.currentTime > 0) {
-            // 如果音频正常在走，以真实的音频时间为绝对准绳
-            game.clock = bgm.currentTime;
-            let now = performance.now();
-            // 如果发生严重卡顿导致跨度变大，强制对齐 startTime
-            if (Math.abs((now - startTime) / 1000 - game.clock) > 0.1) {
-                startTime = now - game.clock * 1000;
+        // 主时钟：纯本地 performance.now() 驱动，不读 bgm.currentTime
+        game.clock = (performance.now() - clockAnchor) / 1000;
+
+        // 音乐延迟启动
+        if (!audioStarted && game.clock >= MUSIC_DELAY) {
+            audioStarted = true;
+            if (bgm) {
+                bgm.currentTime = 0;
+                bgm.play().catch(e => console.warn("音乐播放失败:", e));
             }
-        } else {
-            // 如果音频还没出声，用系统时间防卡死
-            game.clock = (performance.now() - startTime) / 1000;
         }
 
         let phase = (game.clock % 0.4 + 0.4) % 0.4;
@@ -606,11 +602,9 @@ function gameLoop(time) {
             if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
         }
 
-        if (game.clock >= 0) {
-            for (let n of game.notes) { if (!n.judged && game.clock > n.time + BAD_WINDOW) { n.judged = true; game.miss++; game.combo = 0; game.feedback = "MISS"; game.feedbackType = 'M'; game.feedbackTimer = 0.6; feedbackYOffset = 0; } }
-        }
+        for (let n of game.notes) { if (!n.judged && game.clock > n.time + BAD_WINDOW) { n.judged = true; game.miss++; game.combo = 0; game.feedback = "MISS"; game.feedbackType = 'M'; game.feedbackTimer = 0.6; feedbackYOffset = 0; } }
 
-        if (game.clock > 242.0) {
+        if (game.clock > SONG_DURATION + MUSIC_DELAY) {
             bgm.pause(); state = 'RESULT';
             isGameLoopRunning = false;
             pauseBtn.style.display = 'none';
@@ -764,8 +758,8 @@ function drawGame(dt) {
     }
 
     if (game.clock >= 0) {
-        let musicDuration = 242.0;
-        let prog = Math.max(0, Math.min(1, game.clock / musicDuration));
+        let totalDuration = SONG_DURATION + MUSIC_DELAY;
+        let prog = Math.max(0, Math.min(1, game.clock / totalDuration));
         
         let barX = TRACK_X;
         let barY = SCREEN_H - 4; 
