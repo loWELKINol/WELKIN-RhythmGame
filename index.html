@@ -231,7 +231,7 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = 1.0;      // 音乐在 clock=1.0 时开始
+const MUSIC_DELAY = 0.4;      // 音乐实际出声时刻（clock 秒）
 const AUDIO_LEAD = 0.2;       // 提前 0.2 秒调用 play() 抵消浏览器音频启动延迟
 const SONG_DURATION = 242.0;
 
@@ -626,8 +626,6 @@ function gameLoop(time) {
     } else if (isPlaying) {
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        // 音乐在 clock >= MUSIC_DELAY - AUDIO_LEAD 时开始缓冲播放
-        // AUDIO_LEAD 抵消浏览器从 play() 调用到实际出声的延迟
         if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
             audioStarted = true;
             bgm.muted = false;
