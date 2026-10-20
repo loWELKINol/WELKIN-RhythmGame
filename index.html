@@ -231,9 +231,11 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = -0.15;      // 音乐实际出声时刻（clock 秒）
-const AUDIO_LEAD = 0.2;       // 提前 0.2 秒调用 play() 抵消浏览器音频启动延迟
+const MUSIC_DELAY = -0.15;    // 最终校音值：音乐在 clock=0 立即起播
+const AUDIO_LEAD = 0.2;       // 保留，负 MUSIC_DELAY 下不参与实际计算
 const SONG_DURATION = 242.0;
+// 结尾四押的精确谱面时间（原始 239.0 + CHART_OFFSET）
+const FINAL_CHORD_TIME = 239.0 + CHART_OFFSET;
 
 let state = 'MENU'; 
 let game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
@@ -286,6 +288,8 @@ function generateBeatmap() {
     for (i = 0; i < 27; i++) { t = 15.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
     for (i = 0; i < 8; i++) { t = 27.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); } }
     for (i = 0; i < 8; i++) { t = 30.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else { AddNote(t, 1, 1); AddNote(t, 3, 3); } }
+    // 33.0 秒四押（AddNote 原始 33.2 + CHART_OFFSET = 判定 33.0）
+    AddNote(33.2, 0, 0); AddNote(33.2, 1, 1); AddNote(33.2, 2, 2); AddNote(33.2, 3, 3);
     for (i = 0; i < 25; i++) { t = 34.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 2, 2); } else { AddNote(t, (i * 3) % 4, (i * 3) % 4); } }
     for (i = 0; i < 35; i++) { t = 45.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else if (i % 3 == 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
     for (i = 0; i < 25; i++) { t = 59.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 1, 1); } else if (i % 4 == 2) { AddNote(t, 2, 2); AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); AddNote(t + 0.2, 3, 3); } else { AddNote(t, (i * 2) % 4, (i * 2) % 4); } }
@@ -301,8 +305,34 @@ function generateBeatmap() {
     for (i = 0; i < 15; i++) { t = 130.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); } else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); } else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t, 3, 3); } else { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); } }
     for (i = 0; i < 27; i++) { t = 137.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } }
     AddNote(148.4, 1, 1); AddNote(148.8, 2, 2); 
-    for (i = 0; i < 30; i++) { t = 149.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else { AddNote(t, i % 4, i % 4); AddNote(t + 0.2, (i + 2) % 4, (i + 2) % 4); } }
-    for (i = 0; i < 25; i++) { t = 161.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); } else { AddNote(t, 1, 1); AddNote(t + 0.2, 2, 2); } }
+    // 148.8 ~ 160.4 段：加料，每组「正拍多押 + 后半拍单音符」，节奏落在 0.4 秒拍点上
+    for (i = 0; i < 30; i++) { 
+        t = 149.0 + i * 0.4; 
+        if (i % 4 == 0) { 
+            AddNote(t, 0, 0); AddNote(t, 3, 3); 
+            AddNote(t + 0.2, (i % 8 == 0) ? 1 : 2, (i % 8 == 0) ? 1 : 2);
+        } else if (i % 4 == 2) { 
+            AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3);
+            AddNote(t + 0.2, 2, 2);
+        } else { 
+            AddNote(t, 1, 1); AddNote(t, 2, 2);
+            AddNote(t + 0.2, (i % 4 == 1) ? 0 : 3, (i % 4 == 1) ? 0 : 3);
+        }
+    }
+    // 160.8 ~ 170.6 段：加料，每组「正拍三/双押 + 后半拍单音符」
+    for (i = 0; i < 25; i++) { 
+        t = 161.0 + i * 0.4; 
+        if (i % 3 == 0) { 
+            AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3);
+            AddNote(t + 0.2, 2, 2);
+        } else if (i % 3 == 1) { 
+            AddNote(t, 0, 0); AddNote(t, 2, 2);
+            AddNote(t + 0.2, (i % 6 == 1) ? 3 : 1, (i % 6 == 1) ? 3 : 1);
+        } else { 
+            AddNote(t, 1, 1); AddNote(t, 2, 2);
+            AddNote(t + 0.2, (i % 6 == 2) ? 0 : 3, (i % 6 == 2) ? 0 : 3);
+        }
+    }
     for (i = 0; i < 7; i++) { t = 171.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
     AddNote(174.0, 0, 0); AddNote(174.4, 3, 3); AddNote(174.8, 1, 1); 
     for (i = 0; i < 25; i++) { t = 175.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 3, 3); } else { AddNote(t, (i * 2) % 4, (i * 2) % 4); } }
@@ -408,7 +438,8 @@ function judgeLane(lane) {
         }
         game.feedbackTimer = 0.6; game.comboScale = 1.5; feedbackYOffset = 0;
         if (game.combo > game.maxCombo) game.maxCombo = game.combo;
-        if (n.time > 238.5 && n.time < 239.5) game.flashAlpha = 1.0;
+        // 仅结尾四押触发白屏闪光
+        if (Math.abs(n.time - FINAL_CHORD_TIME) < 0.05) game.flashAlpha = 1.0;
     }
 }
 
@@ -764,7 +795,8 @@ function drawGame(dt) {
         let currentX = lerp(startX, endX, smoothP);
 
         let w = LANE_W - 30, h = NOTE_H, x = currentX - w / 2;
-        let isFinal = (n.time > 238.5 && n.time < 239.5);
+        // 只有结尾四押（239.0 + CHART_OFFSET）才有拖尾
+        let isFinal = Math.abs(n.time - FINAL_CHORD_TIME) < 0.05;
 
         let alpha = Math.min(1, progress * 5);
 
