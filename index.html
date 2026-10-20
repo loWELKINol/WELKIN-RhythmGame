@@ -231,7 +231,7 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = 1.0;   // 音乐在 clock 到达该秒数后才启动（原 0.5，按你要求共延迟 1 秒）
+const MUSIC_DELAY = 0;     // 音乐从 clock=0 立即起播
 const SONG_DURATION = 242.0;
 
 let state = 'MENU'; 
@@ -632,7 +632,7 @@ function gameLoop(time) {
         // 主时钟：纯本地 performance.now() 驱动，不读 bgm.currentTime
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        // 音乐延迟启动：clock 到达 MUSIC_DELAY 且音频就绪才播
+        // 音乐启动：MUSIC_DELAY=0 时 clock 一到 0 就播
         if (!audioStarted && game.clock >= MUSIC_DELAY && bgm.readyState >= 2) {
             audioStarted = true;
             bgm.muted = false;
