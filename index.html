@@ -6,40 +6,18 @@
     <title>V. - Web Rhythm Game</title>
     <style>
         body { margin: 0; padding: 0; background-color: #05070a; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; user-select: none; -webkit-user-select: none; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
-        /* 画布层级调低，保证菜单能盖住它 */
         canvas { display: block; object-fit: contain; max-width: 100%; max-height: 100%; box-shadow: 0 0 30px rgba(80, 200, 255, 0.15); position: relative; z-index: 2; }
         
-        /* 全屏转场遮罩 */
-        #transition-mask {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; opacity: 0; pointer-events: none; z-index: 9999;
-            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         #transition-mask.show { opacity: 1; pointer-events: auto; }
 
-        /* 加载提示 */
-        #loading-text {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #50c8ff; font-size: 24px; z-index: 10000; font-weight: bold;
-            text-shadow: 0 0 10px #50c8ff; animation: pulse 1.5s infinite; pointer-events: none;
-        }
+        #loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #50c8ff; font-size: 24px; z-index: 10000; font-weight: bold; text-shadow: 0 0 10px #50c8ff; animation: pulse 1.5s infinite; pointer-events: none; }
 
-        /* 暂停按钮 */
-        #pauseBtn {
-            position: absolute; top: 15px; left: 15px;
-            width: 40px; height: 40px;
-            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px; color: white; font-size: 16px; cursor: pointer;
-            display: none; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            align-items: center; justify-content: center;
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+        #pauseBtn { position: absolute; top: 15px; left: 15px; width: 40px; height: 40px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; color: white; font-size: 16px; cursor: pointer; display: none; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         #pauseBtn:hover { background: rgba(255,255,255,0.15); transform: scale(1.05); }
         #pauseBtn:active { transform: scale(0.95); }
         #pauseBtn.confirming { background: #ff4444; border-color: #ff4444; box-shadow: 0 0 15px rgba(255, 68, 68, 0.6); animation: pulse 0.5s infinite; }
 
-        /* 模态框层级极高 */
         .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,7,10,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .modal.show { opacity: 1; pointer-events: auto; }
         .modal-content-wrapper { transform: translateY(30px) scale(0.95); transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; flex-direction: column; align-items: center; }
@@ -61,7 +39,6 @@
         .switch-btn { font-size: 12px; padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #ccc; border-radius: 12px; cursor: pointer; margin-left: 15px; transition: all 0.2s; z-index: 10; position: relative;}
         .switch-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
-        /* 主界面层级提到 10 */
         #start-screen { display: none; position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10; cursor: pointer;}
 
         @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
@@ -71,10 +48,11 @@
 </head>
 <body>
 
-    <div id="loading-text">Loading Audio & Image...</div>
+    <div id="loading-text">Loading...</div>
     <div id="transition-mask"></div>
 
-    <div id="pauseBtn" onclick="handlePauseClick(event)">⏸</div>
+    <!-- 去掉内联 onclick，改用 JS 事件绑定防连点 -->
+    <div id="pauseBtn">⏸</div>
 
     <div id="loginModal" class="modal" onclick="event.stopPropagation()">
         <div class="modal-content-wrapper">
@@ -101,16 +79,13 @@
         </div>
     </div>
 
-    <!-- 主界面 -->
     <div id="start-screen">
         <img src="cover.jpg" alt="Cover" onerror="this.style.display='none'" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; opacity:0.9; z-index:0;">
         <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.7)); z-index:1;"></div>
 
-        <!-- 顶部用户信息区 -->
         <div class="menu-anim" style="animation-delay: 0.1s; position: absolute; top: 20px; left: 20px; display: flex; align-items: center; background: rgba(10, 15, 25, 0.6); padding: 10px 15px 10px 10px; border-radius: 12px; z-index: 20; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
             <img id="userAvatarDisplay" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #50c8ff; margin-right: 12px; background:#333;">
             <span id="userNameDisplay" style="font-size: 18px; color: white; font-weight: bold; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></span>
-            <!-- 换号按钮 -->
             <button class="switch-btn" onclick="switchUser(event)">换号</button>
         </div>
 
@@ -119,7 +94,6 @@
             <div id="highScoreValue" style="font-size: 38px; color: #ffe664; font-weight: bold; font-family: 'Consolas', monospace; text-shadow: 0 0 15px rgba(255,230,100,0.4);">0000000</div>
         </div>
 
-        <!-- 开始文字 -->
         <h1 class="menu-anim" style="animation-delay: 0.3s; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 38px; text-shadow: 0 0 20px #00bfff, 0 0 40px #00bfff; animation: pulse 2.5s infinite, slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; z-index: 1; pointer-events: none; text-align: center; font-weight: 900; letter-spacing: 2px;">
             点击屏幕任意位置开始<br><span style="font-size:20px;color:#a0c0ff;letter-spacing:1px;margin-top:10px;display:block;">CLICK ANYWHERE TO START</span>
         </h1>
@@ -129,6 +103,9 @@
     <audio id="bgm" src="V.mp3" preload="auto"></audio>
 
 <script>
+// ================= 全局状态防护锁 =================
+let isGameLoopRunning = false; // 彻底杜绝多个游戏循环同时运行导致的卡顿和自动暂停
+
 // ================= 用户系统 & 最高分 =================
 let currentUser = null;
 let tempAvatarBase64 = '';
@@ -140,6 +117,7 @@ function updateHighScoreUI() {
 }
 
 function checkLogin() {
+    // 页面一加载，立刻干掉加载文字和黑屏遮罩
     document.getElementById('loading-text').style.display = 'none';
     document.getElementById('transition-mask').classList.remove('show');
 
@@ -163,10 +141,11 @@ function showStartScreen() {
         el.style.animation = null; 
     });
     document.getElementById('start-screen').style.display = 'block';
+    state = 'MENU';
 }
 
 function switchUser(e) {
-    e.stopPropagation(); // 阻止事件冒泡，防止触发开始游戏
+    e.stopPropagation(); // 阻止事件穿透
     localStorage.removeItem('rhythm_user');
     currentUser = null; tempAvatarBase64 = '';
     document.getElementById('avatarPreview').style.display = 'none';
@@ -204,6 +183,8 @@ function doLogin() {
     setTimeout(() => { showStartScreen(); }, 300);
 }
 
+// 绑定 DOMContentLoaded 和 load，双保险，立刻隐藏加载文字
+window.addEventListener('DOMContentLoaded', checkLogin);
 window.addEventListener('load', checkLogin);
 
 // ================= 游戏核心 =================
@@ -335,13 +316,18 @@ function transitionTo(nextState, callback) {
 }
 
 function startGame() {
-    if (state === 'GAME') return;
+    if (state !== 'MENU') return;
+    state = 'LOADING'; // 锁死状态，防止多次点击启动多个循环
+    document.getElementById('loading-text').style.display = 'none';
     startScreen.style.display = 'none';
+    
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
         bgm.currentTime = 0; bgm.play().catch(e => console.log("等待交互播放音频"));
         resetGameData();
         lastTime = performance.now();
+        
+        isGameLoopRunning = true;
         if (reqAnimId) cancelAnimationFrame(reqAnimId);
         reqAnimId = requestAnimationFrame(gameLoop);
     });
@@ -375,8 +361,15 @@ function judgeLane(lane) {
     }
 }
 
+// 纯 JS 绑定暂停按钮，防止多次触发
+pauseBtn.addEventListener('pointerdown', handlePauseClick);
+pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
+
 function handlePauseClick(e) {
-    e.stopPropagation();
+    if (e) {
+        e.stopPropagation();
+        e.preventDefault(); // 阻止触摸事件穿透
+    }
     if (state !== 'GAME' || resumeCountdown > 0) return;
 
     if (!isConfirmingPause) {
@@ -401,23 +394,30 @@ function handlePauseClick(e) {
 }
 
 function triggerPause() {
+    if (state !== 'GAME') return;
     state = 'PAUSED';
+    isGameLoopRunning = false; // 关停循环
+    if (reqAnimId) cancelAnimationFrame(reqAnimId);
     bgm.pause();
     pauseModal.classList.add('show');
-    if (reqAnimId) cancelAnimationFrame(reqAnimId);
 }
 
 function resumeGame() {
+    if (state !== 'PAUSED') return;
+    state = 'RESUMING';
     pauseModal.classList.remove('show');
     setTimeout(() => {
         state = 'GAME';
         resumeCountdown = 3.0;
         lastTime = performance.now();
+        isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
     }, 300);
 }
 
 function restartGame() {
+    if (state !== 'PAUSED') return;
+    state = 'RESUMING';
     pauseModal.classList.remove('show');
     setTimeout(() => {
         state = 'GAME';
@@ -426,32 +426,38 @@ function restartGame() {
         resetGameData();
         resumeCountdown = 3.0;
         lastTime = performance.now();
+        isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
     }, 300);
 }
 
 function quitGame() {
+    if (state !== 'PAUSED') return;
+    state = 'LOADING';
     pauseModal.classList.remove('show');
+    isGameLoopRunning = false;
+    if (reqAnimId) cancelAnimationFrame(reqAnimId);
+    
     transitionTo('MENU', () => {
         pauseBtn.style.display = 'none';
         bgm.pause(); bgm.currentTime = 0;
         showStartScreen();
-        if (reqAnimId) cancelAnimationFrame(reqAnimId);
     });
 }
 
-// ================= 全局点击事件，彻底解决无法开始 =================
-window.addEventListener('pointerdown', (e) => {
-    // 如果点击的是按钮、输入框或者模态框内部，直接跳过
-    if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal')) {
-        return;
-    }
-    // 如果当前在主界面，点击任意地方开始
+// ================= 全局触屏与点击事件 (完美兼容手机/平板/电脑) =================
+function handleGlobalStart(e) {
     if (state === 'MENU' && startScreen.style.display !== 'none') {
+        // 如果点的是按钮、输入框或弹窗，不触发
+        if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
         startGame();
     }
-});
+}
+// 同时监听 mouse/pen (pointerdown) 和 纯触屏 (touchstart)
+window.addEventListener('pointerdown', handleGlobalStart);
+window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
+// 画布点击判定
 canvas.addEventListener('pointerdown', e => {
     if (state === 'GAME' && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
@@ -465,8 +471,18 @@ canvas.addEventListener('pointerdown', e => {
         if (y > resultButtonY - 30 && y < resultButtonY + 30 && x > SCREEN_W/2 - 100 && x < SCREEN_W/2 + 100) returnToMenu();
     }
 });
+canvas.addEventListener('touchstart', e => {
+    if (state === 'GAME' && resumeCountdown <= 0) {
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = (touch.clientX - rect.left) / rect.width * SCREEN_W;
+        let lane = Math.floor((x - TRACK_X) / LANE_W);
+        if (lane >= 0 && lane < 4) { game.keyHold[lane] = true; judgeLane(lane); }
+    }
+}, { passive: false });
 
 canvas.addEventListener('pointerup', () => { game.keyHold = [false,false,false,false]; });
+canvas.addEventListener('touchend', () => { game.keyHold = [false,false,false,false]; });
 canvas.addEventListener('pointercancel', () => { game.keyHold = [false,false,false,false]; });
 
 window.addEventListener('keydown', e => {
@@ -488,16 +504,21 @@ window.addEventListener('keyup', e => {
 
 function returnToMenu() {
     if (state === 'MENU') return;
+    state = 'LOADING';
+    isGameLoopRunning = false;
+    if (reqAnimId) cancelAnimationFrame(reqAnimId);
+
     transitionTo('MENU', () => {
         pauseBtn.style.display = 'none';
         bgm.pause(); bgm.currentTime = 0;
         showStartScreen();
-        if (reqAnimId) cancelAnimationFrame(reqAnimId);
     });
 }
 
+// ================= 游戏主循环 =================
 function gameLoop(time) {
-    if (state !== 'GAME') return;
+    // 双重校验：只要状态不对或者循环没开启，直接退出，绝对不卡顿
+    if (!isGameLoopRunning || state !== 'GAME') return;
     
     let dt = (time - lastTime) / 1000; lastTime = time;
     if (dt > 0.1) dt = 0.1; 
@@ -547,6 +568,7 @@ function gameLoop(time) {
 
     if (game.clock > 242.0) {
         bgm.pause(); state = 'RESULT';
+        isGameLoopRunning = false;
         pauseBtn.style.display = 'none';
         
         let finalScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
