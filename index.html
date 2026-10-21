@@ -262,10 +262,9 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = -0.15;    // 最终校音值：音乐在 clock=0 立即起播
-const AUDIO_LEAD = 0.2;       // 保留，负 MUSIC_DELAY 下不参与实际计算
+const MUSIC_DELAY = -0.15;    
+const AUDIO_LEAD = 0.2;       
 const SONG_DURATION = 242.0;
-// 结尾四押的精确谱面时间（原始 239.0 + CHART_OFFSET）
 const FINAL_CHORD_TIME = 239.0 + CHART_OFFSET;
 
 let state = 'MENU'; 
@@ -421,8 +420,34 @@ function generateBeatmap() {
     
     for (i = 0; i < 7; i++) { t = 171.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
     AddNote(174.0, 0, 0); AddNote(174.4, 3, 3); AddNote(174.8, 1, 1); 
-    for (i = 0; i < 25; i++) { t = 175.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 3, 3); } else { AddNote(t, (i * 2) % 4, (i * 2) % 4); } }
-    for (i = 0; i < 25; i++) { t = 185.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } }
+    
+    // ================= 2:55 ~ 3:10 (175.0s ~ 190.0s) 高密度加料，每5秒切换配置 =================
+    // 175.0 ~ 179.8 (5秒切换1)：错位双押 + 后半拍单键
+    for (i = 0; i < 12; i++) {
+        t = 175.0 + i * 0.4;
+        if (i % 2 === 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 2, 2); }
+        else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 3, 3); }
+    }
+    // 180.0 ~ 184.8 (5秒切换2)：密集三押
+    for (i = 0; i < 12; i++) {
+        t = 180.0 + i * 0.4;
+        if (i % 3 === 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
+        else if (i % 3 === 1) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 3, 3); }
+        else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 3, 3); }
+    }
+    // 185.0 ~ 189.8 (5秒切换3)：16分极速交互
+    for (i = 0; i < 12; i++) {
+        t = 185.0 + i * 0.4;
+        if (i % 4 === 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
+        else if (i % 4 === 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
+        else if (i % 4 === 2) { AddNote(t, 1, 1); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.3, 3, 3); }
+        else { AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); }
+    }
+    // ==================================================================================
+
+    // 190.0 ~ 194.6 继续使用原本 185 循环剩余的部分
+    for (i = 12; i < 25; i++) { t = 185.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } }
+    
     for (i = 0; i < 20; i++) { t = 195.0 + i * 0.4; AddNote(t, i % 2 == 0 ? 0 : 3, i % 2 == 0 ? 0 : 3); AddNote(t + 0.1, i % 2 == 0 ? 3 : 0, i % 2 == 0 ? 3 : 0); }
     for (i = 0; i < 12; i++) { t = 204.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
     AddNote(209.0, 1, 1); AddNote(209.4, 2, 2); AddNote(209.8, 3, 3); 
@@ -490,8 +515,8 @@ function startGame() {
     
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
-        bgm.currentTime = 0; 
         bgm.pause();
+        try { bgm.currentTime = 0; } catch(e) {}
         
         resetGameData();
         lastTime = performance.now();
@@ -582,15 +607,11 @@ function triggerPause() {
     pauseModal.classList.add('show');
 }
 
-// 修复：在倒计时一开始就完成 Seek，给浏览器留出绝对充足的缓冲时间
+// 继续游戏：彻底解决音频异步重置问题
 function resumeGame() {
     if (state !== 'PAUSED') return;
-    unlockAudio();
     state = 'RESUMING';
     pauseModal.classList.remove('show');
-    
-    // 关键修复：提前将音频对齐到暂停点
-    try { bgm.currentTime = pausedAudioPos; } catch(e) {}
     
     setTimeout(() => {
         state = 'GAME';
@@ -601,21 +622,17 @@ function resumeGame() {
     }, 300);
 }
 
-// 修复：重开前强制解锁音频，并重新加载源，防止死锁
+// 重新开始
 function restartGame() {
     if (state !== 'PAUSED') return;
-    unlockAudio();
     state = 'RESUMING';
     pauseModal.classList.remove('show');
     
     bgm.pause();
-    bgm.currentTime = 0;
+    try { bgm.currentTime = 0; } catch(e) {}
     
     setTimeout(() => {
         state = 'GAME';
-        bgm.src = 'V.mp3'; // 强制重置音频元素状态
-        bgm.load();
-        
         resetGameData();
         lastTime = performance.now();
         isGameLoopRunning = true;
@@ -732,10 +749,12 @@ function gameLoop(time) {
     if (resumeCountdown > 0) {
         resumeCountdown -= dt;
         if (resumeCountdown <= 0) {
+            // 倒计时结束的瞬间，同步音频
             clockAnchor = performance.now() - pausedClock * 1000;
             game.clock = pausedClock;
             
             if (audioStarted) {
+                try { bgm.currentTime = pausedAudioPos; } catch(e) {}
                 bgm.play().catch(e => console.warn("恢复音乐失败:", e));
             } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
                 audioStarted = true;
@@ -867,35 +886,6 @@ function drawGame(dt) {
             ctx.moveTo(TRACK_X + TRACK_W, waveY); ctx.lineTo(SCREEN_W, waveY);
             ctx.stroke();
         }
-    }
-
-    // ====== 200秒 - 202秒 黑紫色深渊暗影 ======
-    if (game.clock >= 200.0 && game.clock <= 202.0) {
-        let p = (game.clock - 200.0) / 2.0;
-        let yPos = -300 + p * (SCREEN_H + 300);
-        let shadowW = LANE_W * 1.5;
-        let cx = SCREEN_W / 2;
-        
-        let tailLength = 600;
-        let gradY = ctx.createLinearGradient(0, yPos - tailLength, 0, yPos);
-        gradY.addColorStop(0, 'rgba(20, 0, 30, 0)');
-        gradY.addColorStop(0.7, 'rgba(60, 0, 100, 0.5)');
-        gradY.addColorStop(1, 'rgba(120, 0, 200, 0.85)');
-        ctx.fillStyle = gradY;
-        
-        ctx.beginPath();
-        ctx.moveTo(cx - shadowW/2, yPos - tailLength);
-        ctx.lineTo(cx + shadowW/2, yPos - tailLength);
-        ctx.lineTo(cx + shadowW/2, yPos);
-        ctx.lineTo(cx - shadowW/2, yPos);
-        ctx.fill();
-        
-        // 尖端高亮
-        ctx.shadowBlur = 40;
-        ctx.shadowColor = 'rgba(120, 0, 200, 0.8)';
-        ctx.fillStyle = 'rgba(60, 0, 100, 0.9)';
-        ctx.fillRect(cx - shadowW/4, yPos - 80, shadowW/2, 80);
-        ctx.shadowBlur = 0;
     }
 
     let trackGrad = ctx.createLinearGradient(TRACK_X, 0, TRACK_X + TRACK_W, 0);
@@ -1106,7 +1096,7 @@ function drawGame(dt) {
 
     let isVignette = (game.clock >= 85.3 && game.clock <= 101.3);
     let isFog = (game.clock >= 210.0 && game.clock <= 231.0);
-    let isExtremeFog = (game.clock >= 202.5 && game.clock <= 203.3); // 新增极压黑雾
+    let isExtremeFog = (game.clock >= 202.0 && game.clock <= 202.8); // 提前到 202.0 秒
     
     if (isVignette || isFog || isExtremeFog) {
         pauseBtn.style.opacity = "0.4";
@@ -1133,9 +1123,9 @@ function drawGame(dt) {
         }
     }
 
-    // 202.5 - 203.3 极速猛烈压迫黑雾
+    // 202.0 - 202.8 极速猛烈压迫黑雾
     if (isExtremeFog) {
-        let extProg = (game.clock - 202.5) / 0.8;
+        let extProg = (game.clock - 202.0) / 0.8; // 提前0.5秒，总时长0.8秒
         let extAlpha = 0;
         if (extProg < 0.2) extAlpha = extProg / 0.2; 
         else if (extProg > 0.6) extAlpha = (0.8 - extProg) / 0.2; 
