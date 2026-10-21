@@ -11,6 +11,7 @@
             display: flex; justify-content: center; align-items: center; 
             touch-action: none; user-select: none; -webkit-user-select: none; 
             overscroll-behavior: none;
+            position: fixed;
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; 
         }
         canvas { 
@@ -19,6 +20,7 @@
             object-fit: contain; 
             box-shadow: 0 0 30px rgba(80, 200, 255, 0.15); 
             position: relative; z-index: 2; 
+            touch-action: none;
         }
         
         #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -76,7 +78,7 @@
         /* ================= iM 系统样式 ================= */
         #imBtn {
             position: absolute; 
-            top: 135px; /* 下移，与账号框留出空间 */
+            top: 135px;
             left: 25px; 
             width: 56px; height: 56px; border-radius: 50%;
             background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
@@ -207,18 +209,25 @@
 
         <!-- 列表视图 -->
         <div id="im-list-view">
-            <!-- 真实帖子 -->
-            <div class="im-post-item" onclick="openImDetail()">
-                <!-- 默认科技风头像，如果你本地有 avatar_im.jpg 会自动覆盖 -->
+            <!-- WELKIN 的帖子 -->
+            <div class="im-post-item" onclick="openImDetail('welkin')">
                 <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><circle cx=\'25\' cy=\'25\' r=\'25\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'2\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'20\' font-family=\'sans-serif\'>W</text></svg>'" class="im-avatar" alt="Me">
                 <div class="im-post-content">大家好！欢迎来到我制作的小音游，以后会加油更新...</div>
                 <div class="im-post-likes"><span class="im-like-icon">👍</span><span id="listLikeCount">0</span></div>
+            </div>
+
+            <!-- Nick 的帖子（替换成了 nick_avatar.jpg） -->
+            <div class="im-post-item" onclick="openImDetail('nick')">
+                <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'18\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-avatar" alt="Nick" style="border-color: #a2d2ff;">
+                <div class="im-post-content">这音游太好玩了，大家快来试试！</div>
+                <div class="im-post-likes"><span class="im-like-icon">👍</span>12</div>
             </div>
         </div>
 
         <!-- 详情视图 -->
         <div id="im-detail-view">
-            <div class="im-detail-card">
+            <!-- WELKIN 的详情 -->
+            <div class="im-detail-card" id="post-welkin">
                 <div class="im-detail-header">
                     <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><circle cx=\'35\' cy=\'35\' r=\'35\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'3\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'28\' font-family=\'sans-serif\'>W</text></svg>'" class="im-detail-avatar">
                     <div>
@@ -233,10 +242,8 @@
                     <span>👍</span> <span id="detailLikeCount">0</span> 点赞
                 </button>
                 
-                <!-- 评论区 -->
                 <div class="im-comments">
                     <div class="im-comment">
-                        <!-- 粉色猫猫头像 -->
                         <div class="im-comment-avatar" style="background: #ffb6c1; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
                         <div class="im-comment-content">
                             <div class="im-comment-name">NEKO</div>
@@ -244,12 +251,38 @@
                         </div>
                     </div>
                     
-                    <!-- 愤怒评论 -->
                     <div class="im-comment">
                         <div class="im-comment-avatar" style="background: #ffcccc; border: 2px solid #ff0000; box-shadow: 0 0 10px rgba(255,0,0,0.5);">😡</div>
                         <div class="im-comment-content">
                             <div class="im-comment-name">区</div>
                             <div class="im-comment-text">啥时候出新歌！</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nick 的详情（替换成了 nick_avatar.jpg） -->
+            <div class="im-detail-card" id="post-nick" style="display: none;">
+                <div class="im-detail-header">
+                    <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><rect width=\'70\' height=\'70\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'24\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-detail-avatar" style="border-color: #a2d2ff;">
+                    <div>
+                        <div class="im-detail-name">Nick</div>
+                        <div style="font-size: 12px; color: #888;">1小时前 · 所有人可见</div>
+                    </div>
+                </div>
+                <div class="im-detail-text">
+                    这音游太好玩了，大家快来试试！
+                </div>
+                <button class="im-like-btn" onclick="alert('已点赞！')">
+                    <span>👍</span> 12 点赞
+                </button>
+                
+                <div class="im-comments">
+                    <div class="im-comment">
+                        <div class="im-comment-avatar" style="background: #ffb6c1; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
+                        <div class="im-comment-content">
+                            <div class="im-comment-name">NEKO</div>
+                            <div class="im-comment-text">带我一个！(⁎⁍̴̛ᴗ⁍̴̛⁎)</div>
                         </div>
                     </div>
                 </div>
@@ -293,7 +326,6 @@
             <button class="switch-btn" onclick="switchUser(event)">换号</button>
         </div>
 
-        <!-- iM 入口按钮 -->
         <div id="imBtn" onclick="openIM(event)">
             <span class="im-text">iM</span>
         </div>
@@ -339,10 +371,8 @@ let isPlaying = false;
 let clockAnchor = 0;
 let audioStarted = false;
 let audioUnlocked = false;
-let lastLaneHitTime = [0, 0, 0, 0];
 let isAudioBroken = false; 
 
-// 用于记录每个手指当前按在哪个轨道
 let pointerLanes = {}; 
 
 let resumeCountdown = 0;
@@ -388,10 +418,18 @@ function handleImBack() {
     }
 }
 
-function openImDetail() {
+function openImDetail(user) {
     document.getElementById('im-list-view').style.display = 'none';
     document.getElementById('im-detail-view').style.display = 'block';
     document.getElementById('imTitle').innerText = 'iM POST';
+    
+    if (user === 'nick') {
+        document.getElementById('post-welkin').style.display = 'none';
+        document.getElementById('post-nick').style.display = 'block';
+    } else {
+        document.getElementById('post-welkin').style.display = 'block';
+        document.getElementById('post-nick').style.display = 'none';
+    }
 }
 
 function doImLike(e) {
@@ -731,7 +769,6 @@ function resetGameData() {
     resumeCountdown = 0;
     pausedClock = 0;
     pausedAudioPos = 0;
-    lastLaneHitTime = [0, 0, 0, 0];
     pointerLanes = {};
 }
 
@@ -774,11 +811,6 @@ function spawnEffect(lane, type, isChord, isMulti) {
 }
 
 function judgeLane(lane) {
-    let now = performance.now();
-    // 防抖从 30ms 降低到 15ms，防止手速快被误杀
-    if (now - lastLaneHitTime[lane] < 15) return;
-    lastLaneHitTime[lane] = now;
-
     let bestIdx = -1, bestDt = 999;
     for (let i = 0; i < game.notes.length; i++) {
         let n = game.notes[i];
@@ -808,8 +840,8 @@ function judgeLane(lane) {
     }
 }
 
-pauseBtn.addEventListener('pointerdown', handlePauseClick);
 pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
+pauseBtn.addEventListener('mousedown', handlePauseClick);
 
 function handlePauseClick(e) {
     if (e) { e.stopPropagation(); e.preventDefault(); }
@@ -912,56 +944,74 @@ function handleGlobalStart(e) {
         startGame();
     }
 }
-window.addEventListener('pointerdown', handleGlobalStart);
+window.addEventListener('mousedown', handleGlobalStart);
 window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
-// ====== 彻底清理触屏冲突 ======
-canvas.addEventListener('pointerdown', e => {
+// 防御性拦截：彻底禁用浏览器的左滑/右滑返回手势、双击缩放、下拉刷新
+canvas.addEventListener('touchmove', e => {
     if (e.cancelable) e.preventDefault();
+}, { passive: false });
+
+// ====== 彻底重构触屏判定机制：抛弃 pointer 使用原生 touchstart ======
+function handleCanvasDown(clientX, clientY, id) {
     if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
+        const x = (clientX - rect.left) / rect.width * SCREEN_W;
         let lane = Math.floor((x - TRACK_X) / LANE_W);
         
         if (lane >= 0 && lane < 4) {
-            pointerLanes[e.pointerId] = lane; // 记录该手指
+            pointerLanes[id] = lane;
             game.keyHold[lane] = true; 
             judgeLane(lane);
         }
     } else if (state === 'RESULT') {
         const rect = canvas.getBoundingClientRect();
-        const y = (e.clientY - rect.top) / rect.height * SCREEN_H;
-        const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
+        const y = (clientY - rect.top) / rect.height * SCREEN_H;
+        const x = (clientX - rect.left) / rect.width * SCREEN_W;
         if (y > resultButtonY - 30 && y < resultButtonY + 30 && x > SCREEN_W/2 - 100 && x < SCREEN_W/2 + 100) returnToMenu();
     }
-});
+}
 
-// 精确抬起，只释放对应的轨道
-canvas.addEventListener('pointerup', e => {
-    let lane = pointerLanes[e.pointerId];
+function handleCanvasUp(id) {
+    let lane = pointerLanes[id];
     if (lane !== undefined) {
-        delete pointerLanes[e.pointerId];
-        // 检查该轨道是否还有别的手指按着
+        delete pointerLanes[id];
         let stillHold = false;
-        for (let id in pointerLanes) {
-            if (pointerLanes[id] === lane) { stillHold = true; break; }
-        }
+        for (let k in pointerLanes) { if (pointerLanes[k] === lane) { stillHold = true; break; } }
         if (!stillHold) game.keyHold[lane] = false;
     }
-});
+}
 
-canvas.addEventListener('pointercancel', e => {
-    let lane = pointerLanes[e.pointerId];
-    if (lane !== undefined) {
-        delete pointerLanes[e.pointerId];
-        let stillHold = false;
-        for (let id in pointerLanes) {
-            if (pointerLanes[id] === lane) { stillHold = true; break; }
-        }
-        if (!stillHold) game.keyHold[lane] = false;
+canvas.addEventListener('touchstart', e => {
+    if (e.cancelable) e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        handleCanvasDown(t.clientX, t.clientY, t.identifier);
     }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    if (e.cancelable) e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        handleCanvasUp(e.changedTouches[i].identifier);
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', e => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        handleCanvasUp(e.changedTouches[i].identifier);
+    }
+}, { passive: false });
+
+// 鼠标兜底
+canvas.addEventListener('mousedown', e => {
+    if (e.cancelable) e.preventDefault();
+    handleCanvasDown(e.clientX, e.clientY, 'mouse');
 });
-// ===============================
+canvas.addEventListener('mouseup', e => {
+    handleCanvasUp('mouse');
+});
+// ========================================================
 
 window.addEventListener('keydown', e => {
     if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0 && !e.repeat) {
