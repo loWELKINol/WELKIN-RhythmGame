@@ -76,8 +76,8 @@
         /* ================= iM 系统样式 ================= */
         #imBtn {
             position: absolute; 
-            top: 135px; /* 往下移动，与账号框留出呼吸空间 */
-            left: 25px; /* 对齐账号框内的头像左侧 */
+            top: 135px; /* 下移，与账号框留出空间 */
+            left: 25px; 
             width: 56px; height: 56px; border-radius: 50%;
             background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
             border: 2px solid #50c8ff;
@@ -94,7 +94,7 @@
             font-style: italic; text-shadow: 0 0 10px #50c8ff; letter-spacing: -1px;
             display: block; 
             line-height: 1; 
-            padding-right: 2px; /* 微调斜体带来的视觉偏移，使字绝对居中 */
+            padding-right: 2px; 
         }
         
         #im-screen {
@@ -340,7 +340,10 @@ let clockAnchor = 0;
 let audioStarted = false;
 let audioUnlocked = false;
 let lastLaneHitTime = [0, 0, 0, 0];
-let isAudioBroken = false; // 音频彻底损坏标记
+let isAudioBroken = false; 
+
+// 用于记录每个手指当前按在哪个轨道
+let pointerLanes = {}; 
 
 let resumeCountdown = 0;
 let pausedClock = 0;
@@ -566,7 +569,7 @@ function unlockAudio() {
             bgm.pause();
             bgm.currentTime = 0;
             bgm.muted = false;
-            isAudioBroken = false; // 解锁成功，重置损坏状态
+            isAudioBroken = false;
         }).catch(() => { bgm.muted = false; });
     }
 }
@@ -723,12 +726,13 @@ function resetGameData() {
     feedbackYOffset = 0;
     isPlaying = false;
     audioStarted = false;
-    isAudioBroken = false;
+    isAudioBroken = false; 
     clockAnchor = 0;
     resumeCountdown = 0;
     pausedClock = 0;
     pausedAudioPos = 0;
     lastLaneHitTime = [0, 0, 0, 0];
+    pointerLanes = {};
 }
 
 function transitionTo(nextState, callback) {
@@ -742,7 +746,6 @@ function transitionTo(nextState, callback) {
     }, 400);
 }
 
-// 修复：彻底移除 load()，防止网络重新请求导致延迟
 function startGame() {
     if (state !== 'MENU') return;
     state = 'LOADING'; 
@@ -772,7 +775,8 @@ function spawnEffect(lane, type, isChord, isMulti) {
 
 function judgeLane(lane) {
     let now = performance.now();
-    if (now - lastLaneHitTime[lane] < 30) return;
+    // 防抖从 30ms 降低到 15ms，防止手速快被误杀
+    if (now - lastLaneHitTime[lane] < 15) return;
     lastLaneHitTime[lane] = now;
 
     let bestIdx = -1, bestDt = 999;
@@ -861,7 +865,6 @@ function resumeGame() {
     }, 300);
 }
 
-// 修复：彻底移除 load()，防止网络重新请求导致延迟
 function restartGame() {
     if (state !== 'PAUSED') return;
     state = 'RESUMING';
@@ -912,6 +915,7 @@ function handleGlobalStart(e) {
 window.addEventListener('pointerdown', handleGlobalStart);
 window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
+// ====== 彻底清理触屏冲突 ======
 canvas.addEventListener('pointerdown', e => {
     if (e.cancelable) e.preventDefault();
     if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
@@ -920,11 +924,9 @@ canvas.addEventListener('pointerdown', e => {
         let lane = Math.floor((x - TRACK_X) / LANE_W);
         
         if (lane >= 0 && lane < 4) {
-            let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
-            if (Math.abs(x - laneCenter) <= 80) { 
-                game.keyHold[lane] = true; 
-                judgeLane(lane);
-            }
+            pointerLanes[e.pointerId] = lane; // 记录该手指
+            game.keyHold[lane] = true; 
+            judgeLane(lane);
         }
     } else if (state === 'RESULT') {
         const rect = canvas.getBoundingClientRect();
@@ -934,28 +936,32 @@ canvas.addEventListener('pointerdown', e => {
     }
 });
 
-canvas.addEventListener('touchstart', e => {
-    if (e.cancelable) e.preventDefault();
-    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
-        const rect = canvas.getBoundingClientRect();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            const x = (touch.clientX - rect.left) / rect.width * SCREEN_W;
-            let lane = Math.floor((x - TRACK_X) / LANE_W);
-            if (lane >= 0 && lane < 4) {
-                let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
-                if (Math.abs(x - laneCenter) <= 80) { 
-                    game.keyHold[lane] = true; 
-                    judgeLane(lane);
-                }
-            }
+// 精确抬起，只释放对应的轨道
+canvas.addEventListener('pointerup', e => {
+    let lane = pointerLanes[e.pointerId];
+    if (lane !== undefined) {
+        delete pointerLanes[e.pointerId];
+        // 检查该轨道是否还有别的手指按着
+        let stillHold = false;
+        for (let id in pointerLanes) {
+            if (pointerLanes[id] === lane) { stillHold = true; break; }
         }
+        if (!stillHold) game.keyHold[lane] = false;
     }
-}, { passive: false });
+});
 
-canvas.addEventListener('pointerup', () => { game.keyHold = [false,false,false,false]; });
-canvas.addEventListener('touchend', () => { game.keyHold = [false,false,false,false]; });
-canvas.addEventListener('pointercancel', () => { game.keyHold = [false,false,false,false]; });
+canvas.addEventListener('pointercancel', e => {
+    let lane = pointerLanes[e.pointerId];
+    if (lane !== undefined) {
+        delete pointerLanes[e.pointerId];
+        let stillHold = false;
+        for (let id in pointerLanes) {
+            if (pointerLanes[id] === lane) { stillHold = true; break; }
+        }
+        if (!stillHold) game.keyHold[lane] = false;
+    }
+});
+// ===============================
 
 window.addEventListener('keydown', e => {
     if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0 && !e.repeat) {
@@ -1033,7 +1039,6 @@ function gameLoop(time) {
     } else if (isPlaying) {
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        // 移除 readyState 严格限制，直接尝试 play()
         if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && !isAudioBroken) {
             audioStarted = true;
             bgm.muted = false;
@@ -1041,14 +1046,12 @@ function gameLoop(time) {
             const p = bgm.play();
             if (p && p.catch) p.catch(e => {
                 console.warn("音乐播放失败，尝试延迟重试:", e);
-                // 延迟重试一次
                 setTimeout(() => {
                     bgm.play().catch(() => { isAudioBroken = true; });
                 }, 100);
             });
         }
 
-        // 防背刺机制
         if (audioStarted && bgm.paused && game.clock > 0.5 && game.clock < SONG_DURATION && !isAudioBroken) {
             const p = bgm.play();
             if (p && p.catch) {
