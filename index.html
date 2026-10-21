@@ -23,7 +23,7 @@
             touch-action: none;
         }
         
-        #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         #transition-mask.show { opacity: 1; pointer-events: auto; }
 
         #loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #50c8ff; font-size: 24px; z-index: 10000; font-weight: bold; text-shadow: 0 0 10px #50c8ff; animation: pulse 1.5s infinite; pointer-events: none; }
@@ -75,7 +75,6 @@
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
         .menu-anim { animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
 
-        /* ================= iM 系统样式 ================= */
         #imBtn {
             position: absolute; 
             top: 135px;
@@ -94,9 +93,7 @@
         #imBtn .im-text {
             color: #fff; font-size: 24px; font-family: 'Arial Black', sans-serif;
             font-style: italic; text-shadow: 0 0 10px #50c8ff; letter-spacing: -1px;
-            display: block; 
-            line-height: 1; 
-            padding-right: 2px; 
+            display: block; line-height: 1; padding-right: 2px; 
         }
         
         #im-screen {
@@ -106,7 +103,6 @@
             overflow: hidden; flex-direction: column;
         }
 
-        /* 动态科技背景 */
         .im-bg {
             position: absolute; top: 0; left: 0; width: 200%; height: 200%;
             background-image: 
@@ -125,7 +121,6 @@
         }
         @keyframes glowPulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        /* 顶栏 */
         .im-topbar {
             position: relative; z-index: 10; height: 60px; display: flex; align-items: center;
             padding: 0 20px; background: rgba(0, 15, 30, 0.8); border-bottom: 1px solid rgba(80, 200, 255, 0.3);
@@ -139,7 +134,6 @@
         .im-back-btn:hover { background: rgba(255,255,255,0.1); }
         .im-title { font-size: 20px; margin-left: 20px; letter-spacing: 2px; font-weight: bold; color: #50c8ff; text-shadow: 0 0 10px rgba(80,200,255,0.5); }
 
-        /* 列表视图 */
         #im-list-view {
             position: relative; z-index: 10; flex: 1; overflow-y: auto; padding: 20px;
             display: flex; flex-direction: column; gap: 15px;
@@ -155,7 +149,6 @@
         .im-post-likes { display: flex; flex-direction: column; align-items: center; color: #50c8ff; font-size: 12px; }
         .im-like-icon { font-size: 18px; margin-bottom: 2px; }
 
-        /* 详情视图 */
         #im-detail-view {
             position: relative; z-index: 10; flex: 1; overflow-y: auto; padding: 20px; display: none;
         }
@@ -177,7 +170,6 @@
         .im-like-btn:active { transform: scale(0.95); }
         .im-like-btn.liked { background: #50c8ff; color: #000; font-weight: bold; }
 
-        /* 评论区 */
         .im-comments { margin-top: 30px; }
         .im-comment { display: flex; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; }
         .im-comment-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: flex; justify-content: center; align-items: center; font-size: 24px; }
@@ -185,7 +177,6 @@
         .im-comment-name { font-size: 14px; color: #aaa; margin-bottom: 5px; }
         .im-comment-text { font-size: 15px; color: #ddd; line-height: 1.5; }
         
-        /* 隐藏滚动条 */
         #im-list-view::-webkit-scrollbar, #im-detail-view::-webkit-scrollbar { width: 6px; }
         #im-list-view::-webkit-scrollbar-thumb, #im-detail-view::-webkit-scrollbar-thumb { background: rgba(80,200,255,0.3); border-radius: 3px; }
     </style>
@@ -197,7 +188,6 @@
 
     <div id="pauseBtn">⏸</div>
 
-    <!-- iM 系统界面 -->
     <div id="im-screen">
         <div class="im-bg"></div>
         <div class="im-glow"></div>
@@ -207,26 +197,21 @@
             <div class="im-title" id="imTitle">iM SYSTEM</div>
         </div>
 
-        <!-- 列表视图 -->
         <div id="im-list-view">
-            <!-- WELKIN 的帖子 -->
             <div class="im-post-item" onclick="openImDetail('welkin')">
                 <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><circle cx=\'25\' cy=\'25\' r=\'25\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'2\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'20\' font-family=\'sans-serif\'>W</text></svg>'" class="im-avatar" alt="Me">
                 <div class="im-post-content">大家好！欢迎来到我制作的小音游，以后会加油更新...</div>
                 <div class="im-post-likes"><span class="im-like-icon">👍</span><span id="listLikeCount">0</span></div>
             </div>
 
-            <!-- Nick 的帖子（替换成了 nick_avatar.jpg） -->
             <div class="im-post-item" onclick="openImDetail('nick')">
                 <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'18\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-avatar" alt="Nick" style="border-color: #a2d2ff;">
-                <div class="im-post-content">这音游太好玩了，大家快来试试！</div>
+                <div class="im-post-content">祝Welkin......</div>
                 <div class="im-post-likes"><span class="im-like-icon">👍</span>12</div>
             </div>
         </div>
 
-        <!-- 详情视图 -->
         <div id="im-detail-view">
-            <!-- WELKIN 的详情 -->
             <div class="im-detail-card" id="post-welkin">
                 <div class="im-detail-header">
                     <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><circle cx=\'35\' cy=\'35\' r=\'35\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'3\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'28\' font-family=\'sans-serif\'>W</text></svg>'" class="im-detail-avatar">
@@ -261,7 +246,6 @@
                 </div>
             </div>
 
-            <!-- Nick 的详情（替换成了 nick_avatar.jpg） -->
             <div class="im-detail-card" id="post-nick" style="display: none;">
                 <div class="im-detail-header">
                     <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><rect width=\'70\' height=\'70\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'24\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-detail-avatar" style="border-color: #a2d2ff;">
@@ -271,7 +255,7 @@
                     </div>
                 </div>
                 <div class="im-detail-text">
-                    这音游太好玩了，大家快来试试！
+                    祝Welkin天天开心，永远不死
                 </div>
                 <button class="im-like-btn" onclick="alert('已点赞！')">
                     <span>👍</span> 12 点赞
@@ -289,7 +273,6 @@
             </div>
         </div>
     </div>
-    <!-- iM 系统结束 -->
 
     <div id="loginModal" class="modal" onclick="event.stopPropagation()">
         <div class="modal-content-wrapper">
@@ -349,10 +332,9 @@
     const el = document.getElementById('coverImg');
     if (!el) return;
     el.addEventListener('load', () => { console.log('[Cover] 加载成功:', el.naturalWidth + '×' + el.naturalHeight); });
-    el.addEventListener('error', () => { console.error('[Cover] 加载失败！请检查文件是否与 index.html 同目录且文件名正确'); el.style.display = 'none'; });
+    el.addEventListener('error', () => { console.error('[Cover] 加载失败'); el.style.display = 'none'; });
 })();
 
-// ====== 核心修复：兼容旧版手机浏览器的圆角矩形绘制 ======
 function safeRoundRect(c, x, y, w, h, r) {
     if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || isNaN(r)) return;
     if (w < 2 * r) r = w / 2;
@@ -370,17 +352,25 @@ let isGameLoopRunning = false;
 let isPlaying = false;
 let clockAnchor = 0;
 
-// ========== 音频状态管理（重构：解决所有音乐 Bug） ==========
-let audioStarted = false;        // 音乐是否已启动
-let audioUnlocked = false;       // 音频是否已解锁（防重复 unlockAudio）
-let isAudioBroken = false;       // 是否彻底损坏（极少触发）
-let playPending = false;         // play() promise 是否 pending
-let playToken = 0;               // 版本号，作废旧 promise
-let audioSyncPending = false;    // 待同步 game.clock
-let lastPlayRetryTime = 0;       // 中途恢复防抖时间戳
-let audioFailCount = 0;          // 连续失败计数
+// ========== 音频状态管理 ==========
+let audioStarted = false;
+let audioUnlocked = false;
+let isAudioBroken = false;
+let playPending = false;
+let playPendingSince = 0;
+let playToken = 0;
+let audioSyncPending = false;
+let audioFailCount = 0;
+
+// 音乐健康检测
+let lastBgTime = 0;
+let lastBgTimeChangeAt = 0;
+let bgTimeInitialized = false;
+let lastHealthCheck = 0;
+let lastSeekTime = 0;
 
 let pointerLanes = {}; 
+let lastTouchTime = 0;  // 用于阻止手机端的模拟 mousedown
 
 let resumeCountdown = 0;
 let pausedClock = 0;
@@ -389,7 +379,7 @@ let pausedAudioPos = 0;
 let currentUser = null;
 let tempAvatarBase64 = '';
 
-// ================= iM 系统逻辑 =================
+// ================= iM 系统 =================
 const baseLikes = 0;
 
 function updateImLikesUI() {
@@ -429,7 +419,6 @@ function openImDetail(user) {
     document.getElementById('im-list-view').style.display = 'none';
     document.getElementById('im-detail-view').style.display = 'block';
     document.getElementById('imTitle').innerText = 'iM POST';
-    
     if (user === 'nick') {
         document.getElementById('post-welkin').style.display = 'none';
         document.getElementById('post-nick').style.display = 'block';
@@ -444,14 +433,11 @@ function doImLike(e) {
     let addedLikes = parseInt(localStorage.getItem('rhythm_im_likes') || '0');
     addedLikes++; 
     localStorage.setItem('rhythm_im_likes', addedLikes);
-    
     const btn = document.getElementById('likeBtn');
     btn.classList.add('liked');
     setTimeout(() => btn.classList.remove('liked'), 200);
-    
     updateImLikesUI();
 }
-// ==============================================
 
 function updateHighScoreUI() {
     if (!currentUser) return;
@@ -462,7 +448,6 @@ function updateHighScoreUI() {
 function checkLogin() {
     document.getElementById('loading-text').style.display = 'none';
     document.getElementById('transition-mask').classList.remove('show');
-
     const saved = localStorage.getItem('rhythm_user');
     if (saved) {
         currentUser = JSON.parse(saved);
@@ -482,14 +467,12 @@ function showStartScreen() {
         el.offsetHeight; 
         el.style.animation = null; 
     });
-    
     const imBtn = document.getElementById('imBtn');
     if(imBtn) {
         imBtn.style.animation = 'none';
         imBtn.offsetHeight;
         imBtn.style.animation = null;
     }
-
     document.getElementById('start-screen').style.display = 'block';
     state = 'MENU';
 }
@@ -524,12 +507,10 @@ function doLogin() {
     if (!tempAvatarBase64) { alert("请上传一张头像！"); return; }
     currentUser = { name, avatar: tempAvatarBase64 };
     localStorage.setItem('rhythm_user', JSON.stringify(currentUser));
-    
     document.getElementById('loginModal').classList.remove('show');
     document.getElementById('userAvatarDisplay').src = currentUser.avatar;
     document.getElementById('userNameDisplay').innerText = currentUser.name;
     updateHighScoreUI();
-    
     setTimeout(() => { showStartScreen(); }, 300);
 }
 
@@ -557,7 +538,7 @@ const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
 const BAD_WINDOW = 0.200;
 const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = -0.15;    
+const MUSIC_DELAY = 1.35;
 const AUDIO_LEAD = 0.2;       
 const SONG_DURATION = 242.0;
 const FINAL_CHORD_TIME = 239.0 + CHART_OFFSET;
@@ -585,37 +566,31 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
-// ================= 颜色渐变辅助函数 =================
 function getAPGradient(x, y, width) {
     let w = width || 100;
     let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
-    g.addColorStop(0, '#ff4d4d');
-    g.addColorStop(0.2, '#ffcc00');
-    g.addColorStop(0.4, '#66ff66');
-    g.addColorStop(0.6, '#33ccff');
-    g.addColorStop(0.8, '#cc66ff');
-    g.addColorStop(1, '#ff4d4d');
+    g.addColorStop(0, '#ff4d4d'); g.addColorStop(0.2, '#ffcc00'); g.addColorStop(0.4, '#66ff66');
+    g.addColorStop(0.6, '#33ccff'); g.addColorStop(0.8, '#cc66ff'); g.addColorStop(1, '#ff4d4d');
     return g;
 }
 
 function getFCGradient(x, y, width) {
     let w = width || 100;
     let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
-    g.addColorStop(0, '#b464ff');
-    g.addColorStop(1, '#64c8ff');
+    g.addColorStop(0, '#b464ff'); g.addColorStop(1, '#64c8ff');
     return g;
 }
 
-// ================= 音频核心函数 =================
+// ========== 音频核心 ==========
 
 function unlockAudio() {
     if (audioUnlocked) return;
     audioUnlocked = true;
+    try { bgm.load(); } catch(e) {}
     bgm.muted = true;
     const p = bgm.play();
     if (p && p.then) {
         p.then(() => {
-            // 若用户还停留在菜单，则恢复静音播放的"解锁"状态
             if (state === 'MENU') {
                 bgm.pause();
                 try { bgm.currentTime = 0; } catch(e) {}
@@ -632,10 +607,10 @@ function startAudio() {
     if (playPending) return false;
     if (!bgm.paused) { audioSyncPending = true; return true; }
     
-    bgm.muted = false;  // 确保不静音
-    
+    bgm.muted = false;
     const myToken = ++playToken;
     playPending = true;
+    playPendingSince = performance.now();
     let p;
     try { p = bgm.play(); } catch (e) {
         playPending = false;
@@ -644,7 +619,7 @@ function startAudio() {
     }
     if (p && p.then) {
         p.then(() => {
-            if (myToken !== playToken) return;  // 已被 reset 作废
+            if (myToken !== playToken) return;
             playPending = false;
             audioSyncPending = true;
             audioFailCount = 0;
@@ -653,14 +628,13 @@ function startAudio() {
             playPending = false;
             const name = err && err.name;
             if (name === 'NotAllowedError' || name === 'AbortError') {
-                // 用户交互/被 pause 打断：正常情况，不标记损坏
-                console.warn('[Audio] play deferred:', name);
+                // 正常情况，不标记损坏
             } else {
                 console.warn('[Audio] play failed:', err);
                 audioFailCount++;
                 if (audioFailCount >= 5) {
                     isAudioBroken = true;
-                    console.warn('[Audio] marked broken after 5 failures');
+                    console.warn('[Audio] marked broken');
                 }
             }
         });
@@ -672,51 +646,107 @@ function startAudio() {
 }
 
 function resetAudioState() {
-    playToken++;              // 作废所有 pending promise
+    playToken++;
     playPending = false;
+    playPendingSince = 0;
     audioStarted = false;
     audioSyncPending = false;
     isAudioBroken = false;
     audioFailCount = 0;
-    lastPlayRetryTime = 0;
+    lastBgTime = 0;
+    lastBgTimeChangeAt = 0;
+    bgTimeInitialized = false;
+    lastHealthCheck = 0;
+    lastSeekTime = 0;
     bgm.muted = false;
     try { bgm.pause(); bgm.currentTime = 0; } catch(e) {}
 }
 
+// 首次启动 + 一次性同步
 function updateMusic() {
     if (isAudioBroken) return;
-    // 未到达启动阈值前不处理（避免倒数前 2.6 秒反复触发）
-    if (!isPlaying && game.clock < MUSIC_DELAY - AUDIO_LEAD) return;
     
-    // ===== 1. 启动 =====
-    if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD) {
-        try { bgm.currentTime = 0; } catch(e) {}
-        if (startAudio()) {
-            audioStarted = true;
-        }
+    // playPending 看门狗
+    if (playPending && performance.now() - playPendingSince > 2500) {
+        console.warn('[Audio] playPending watchdog timeout');
+        playPending = false;
+        playToken++;
     }
     
-    // ===== 2. 一次同步（用音乐时间反推 game.clock） =====
+    // 首次启动（移除 readyState 限制：即使未就绪也让浏览器处理）
+    if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD) {
+        let target = Math.max(0, game.clock - MUSIC_DELAY);
+        try { bgm.currentTime = target; } catch(e) {}
+        if (startAudio()) audioStarted = true;
+    }
+    
+    // 一次性同步：只在音乐超前时追（避免音符倒退）
     if (audioStarted && audioSyncPending && !bgm.paused && !playPending) {
         audioSyncPending = false;
         let musicTime = bgm.currentTime + MUSIC_DELAY;
         let drift = musicTime - game.clock;
-        // 只在温和偏差内校正，避免视觉跳变
-        if (Math.abs(drift) > 0.03 && Math.abs(drift) < 0.35) {
+        if (drift > 0.03 && drift < 0.35) {
             clockAnchor = performance.now() - musicTime * 1000;
             game.clock = musicTime;
         }
     }
+}
+
+// 每 300ms 检测音乐健康
+function updateMusicHealth() {
+    if (!isPlaying || isAudioBroken) return;
+    if (game.clock < MUSIC_DELAY) return;
     
-    // ===== 3. 中途恢复（音频被系统打断） =====
-    if (audioStarted && bgm.paused && !playPending && isPlaying && game.clock < SONG_DURATION - 1) {
-        let now = performance.now();
-        if (now - lastPlayRetryTime > 1500) {  // 1.5s 防抖，避免堆积 promise
-            lastPlayRetryTime = now;
-            let target = Math.max(0, game.clock - MUSIC_DELAY);
-            try { bgm.currentTime = target; } catch(e) {}
-            startAudio();
-        }
+    const now = performance.now();
+    if (now - lastHealthCheck < 300) return;
+    lastHealthCheck = now;
+    
+    const expected = Math.max(0, game.clock - MUSIC_DELAY);
+    const currentBg = bgm.currentTime;
+    const drift = currentBg - expected;
+    const bgChanged = Math.abs(currentBg - lastBgTime) > 0.005;
+    
+    if (!bgTimeInitialized) {
+        lastBgTime = currentBg;
+        lastBgTimeChangeAt = now;
+        bgTimeInitialized = true;
+        return;
+    }
+    
+    if (bgChanged) {
+        lastBgTime = currentBg;
+        lastBgTimeChangeAt = now;
+    }
+    
+    // 1. 假播放：paused=false 但 currentTime 停滞 > 1.2s
+    if (audioStarted && !bgm.paused && !bgChanged && (now - lastBgTimeChangeAt > 1200)) {
+        console.warn('[AudioHealth] Fake playback, restart at', expected.toFixed(2));
+        try { bgm.pause(); } catch(e) {}
+        try { bgm.currentTime = expected; } catch(e) {}
+        audioStarted = false;
+        if (startAudio()) audioStarted = true;
+        lastBgTimeChangeAt = now;
+        lastSeekTime = now;
+        bgTimeInitialized = false;
+        return;
+    }
+    
+    // 2. 意外暂停
+    if (audioStarted && bgm.paused && !playPending) {
+        console.warn('[AudioHealth] Unexpected pause, resuming at', expected.toFixed(2));
+        try { bgm.currentTime = expected; } catch(e) {}
+        if (startAudio()) audioStarted = true;
+        lastSeekTime = now;
+        bgTimeInitialized = false;
+        return;
+    }
+    
+    // 3. 大漂移校正（seek 音乐，不改 game.clock）
+    if (audioStarted && !bgm.paused && Math.abs(drift) > 0.2 && now - lastSeekTime > 1500) {
+        console.warn('[AudioHealth] Large drift', drift.toFixed(2), 'correcting');
+        try { bgm.currentTime = expected; } catch(e) {}
+        lastSeekTime = now;
+        bgTimeInitialized = false;
     }
 }
 
@@ -735,14 +765,10 @@ function generateBeatmap() {
     AddNote(14.4, 0, 0); AddNote(14.8, 3, 3); 
     for (i = 0; i < 27; i++) { t = 15.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
     for (i = 0; i < 8; i++) { t = 27.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); } }
-    
     for (i = 0; i < 8; i++) { t = 30.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else { AddNote(t, 1, 1); AddNote(t, 3, 3); } }
-    
     AddNote(33.0, 0, 0); AddNote(33.0, 1, 1); AddNote(33.0, 2, 2); AddNote(33.0, 3, 3);
-    
     for (i = 0; i < 25; i++) { t = 34.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 2, 2); } else { AddNote(t, (i * 3) % 4, (i * 3) % 4); } }
     for (i = 0; i < 35; i++) { t = 45.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else if (i % 3 == 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
-    
     for (i = 0; i < 25; i++) { 
         t = 59.0 + i * 0.4; 
         if (i < 12) {
@@ -757,14 +783,12 @@ function generateBeatmap() {
             else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 0, 0); }
         }
     }
-
     AddNote(69.2, 0, 0); AddNote(69.6, 3, 3); AddNote(70.0, 1, 1); AddNote(70.4, 2, 2); AddNote(70.8, 0, 0); AddNote(71.2, 3, 3); 
     for (i = 0; i < 20; i++) { t = 72.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 0, 0); } }
     for (i = 0; i < 10; i++) { t = 80.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); } }
     for (i = 0; i < 58; i++) { t = 85.3 + i * 0.1; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); }
     for (i = 0; i < 60; i++) { t = 91.0 + i * 0.1; AddNote(t, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
     AddNote(97.0, 0, 0); AddNote(97.0, 3, 3); AddNote(97.4, 1, 1); AddNote(97.8, 2, 2); 
-    
     for (i = 0; i < 30; i++) { 
         t = 98.0 + i * 0.4; 
         if (i < 15) {
@@ -775,13 +799,11 @@ function generateBeatmap() {
             else { AddNote(t + 0.1, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 2, 2); }
         }
     }
-
     for (i = 0; i < 30; i++) { t = 111.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } else if (i % 3 == 1) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); } }
     for (i = 0; i < 15; i++) { t = 123.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 2, 2); }
     for (i = 0; i < 15; i++) { t = 130.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); } else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); } else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t, 3, 3); } else { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); } }
     for (i = 0; i < 27; i++) { t = 137.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } }
     AddNote(148.4, 1, 1); AddNote(148.8, 2, 2); 
-    
     for (i = 0; i < 30; i++) { 
         t = 149.0 + i * 0.4; 
         if (i % 4 == 0) { 
@@ -795,7 +817,6 @@ function generateBeatmap() {
             AddNote(t + 0.2, (i % 4 == 1) ? 0 : 3, (i % 4 == 1) ? 0 : 3);
         }
     }
-    
     for (i = 0; i < 25; i++) { 
         t = 161.0 + i * 0.4; 
         if (i % 3 == 0) { 
@@ -809,10 +830,8 @@ function generateBeatmap() {
             AddNote(t + 0.2, (i % 6 == 2) ? 0 : 3, (i % 6 == 2) ? 0 : 3);
         }
     }
-    
     for (i = 0; i < 7; i++) { t = 171.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
     AddNote(174.0, 0, 0); AddNote(174.4, 3, 3); AddNote(174.8, 1, 1); 
-    
     for (i = 0; i < 12; i++) {
         t = 175.0 + i * 0.4;
         if (i % 2 === 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 2, 2); }
@@ -831,13 +850,10 @@ function generateBeatmap() {
         else if (i % 4 === 2) { AddNote(t, 1, 1); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.3, 3, 3); }
         else { AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); }
     }
-    
     for (i = 12; i < 25; i++) { t = 185.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } }
-    
     for (i = 0; i < 20; i++) { t = 195.0 + i * 0.4; AddNote(t, i % 2 == 0 ? 0 : 3, i % 2 == 0 ? 0 : 3); AddNote(t + 0.1, i % 2 == 0 ? 3 : 0, i % 2 == 0 ? 3 : 0); }
     for (i = 0; i < 12; i++) { t = 204.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
     AddNote(209.0, 1, 1); AddNote(209.4, 2, 2); AddNote(209.8, 3, 3); 
-    
     for (i = 0; i < 50; i++) { 
         t = 210.0 + i * 0.4; 
         if (i < 25) {
@@ -878,7 +894,7 @@ function resetGameData() {
     pausedClock = 0;
     pausedAudioPos = 0;
     pointerLanes = {};
-    resetAudioState();   // ★ 统一重置音频状态
+    resetAudioState();
 }
 
 function transitionTo(nextState, callback) {
@@ -900,7 +916,7 @@ function startGame() {
     
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
-        resetGameData();   // 内部会 resetAudioState（pause + currentTime=0）
+        resetGameData();
         lastTime = performance.now();
         state = 'GAME';
         isGameLoopRunning = true;
@@ -926,12 +942,10 @@ function judgeLane(lane) {
         let n = game.notes[bestIdx]; n.judged = true;
         if (bestDt <= PERFECT_WINDOW) {
             game.perfect++; game.weightSum += 1.0; game.combo++; game.feedback = "PERFECT"; game.feedbackType = 'P'; game.judgeLineGlow = 1.0; 
-            
             let shake = 2.5;
             if (n.is_multi) shake = 5.0;
             else if (n.is_chord) shake = 3.5;
             game.screenShake = shake;
-            
             spawnEffect(lane, 0, n.is_chord, n.is_multi);
         } else if (bestDt <= GOOD_WINDOW) {
             game.good++; game.weightSum += 0.65; game.combo++; game.feedback = "GOOD"; game.feedbackType = 'G'; game.judgeLineGlow = 0.6; game.screenShake = 1.5; spawnEffect(lane, 1, n.is_chord, n.is_multi);
@@ -987,8 +1001,6 @@ function resumeGame() {
     if (state !== 'PAUSED') return;
     state = 'RESUMING';
     pauseModal.classList.remove('show');
-    
-    // ★ 不在这里碰 bgm，等 resumeCountdown 结束再恢复（避免提前 play 与 clockAnchor 错位）
     setTimeout(() => {
         state = 'GAME';
         resumeCountdown = 3.0;
@@ -1002,10 +1014,9 @@ function restartGame() {
     if (state !== 'PAUSED') return;
     state = 'RESUMING';
     pauseModal.classList.remove('show');
-    
     setTimeout(() => {
         state = 'GAME';
-        resetGameData();       // 内部 resetAudioState 会清空旧 promise token
+        resetGameData();
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -1018,10 +1029,9 @@ function quitGame() {
     pauseModal.classList.remove('show');
     isGameLoopRunning = false;
     if (reqAnimId) cancelAnimationFrame(reqAnimId);
-    
     transitionTo('MENU', () => {
         pauseBtn.style.display = 'none';
-        resetAudioState();     // ★ 清空 pending promise
+        resetAudioState();
         showStartScreen();
     });
 }
@@ -1034,7 +1044,6 @@ document.addEventListener('visibilitychange', () => {
 
 function handleGlobalStart(e) {
     if (e.target.closest('#imBtn') || e.target.closest('#im-screen')) return;
-
     if (state === 'MENU' && startScreen.style.display !== 'none') {
         if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
         if (e.cancelable) e.preventDefault();
@@ -1045,12 +1054,12 @@ function handleGlobalStart(e) {
 window.addEventListener('mousedown', handleGlobalStart);
 window.addEventListener('touchstart', handleGlobalStart, { passive: false });
 
-// 防御性拦截：彻底禁用浏览器的左滑/右滑返回手势、双击缩放、下拉刷新
+// 防御性拦截
 canvas.addEventListener('touchmove', e => {
     if (e.cancelable) e.preventDefault();
 }, { passive: false });
 
-// ====== 彻底重构触屏判定机制：抛弃 pointer 使用原生 touchstart ======
+// ====== 触屏判定（保持原判定逻辑不变） ======
 function handleCanvasDown(clientX, clientY, id) {
     if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
         const rect = canvas.getBoundingClientRect();
@@ -1082,6 +1091,7 @@ function handleCanvasUp(id) {
 
 canvas.addEventListener('touchstart', e => {
     if (e.cancelable) e.preventDefault();
+    lastTouchTime = performance.now();  // 标记：最近有触摸事件
     for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         handleCanvasDown(t.clientX, t.clientY, t.identifier);
@@ -1101,12 +1111,14 @@ canvas.addEventListener('touchcancel', e => {
     }
 }, { passive: false });
 
-// 鼠标兜底
+// 鼠标兜底：如果最近 500ms 内有触摸，忽略模拟 mousedown
 canvas.addEventListener('mousedown', e => {
+    if (performance.now() - lastTouchTime < 500) return;  // ★ 关键：阻止手机模拟 mousedown
     if (e.cancelable) e.preventDefault();
     handleCanvasDown(e.clientX, e.clientY, 'mouse');
 });
 canvas.addEventListener('mouseup', e => {
+    if (performance.now() - lastTouchTime < 500) return;
     handleCanvasUp('mouse');
 });
 // ========================================================
@@ -1133,10 +1145,9 @@ function returnToMenu() {
     state = 'LOADING';
     isGameLoopRunning = false;
     if (reqAnimId) cancelAnimationFrame(reqAnimId);
-
     transitionTo('MENU', () => {
         pauseBtn.style.display = 'none';
-        resetAudioState();   // ★ 清空 pending promise
+        resetAudioState();
         showStartScreen();
     });
 }
@@ -1147,15 +1158,14 @@ function gameLoop(time) {
     let dt = (time - lastTime) / 1000; lastTime = time;
     if (dt > 0.1) dt = 0.1; 
     
-    // ===== 恢复倒计时分支 =====
+    // ===== 恢复倒计时 =====
     if (resumeCountdown > 0) {
         resumeCountdown -= dt;
         if (resumeCountdown <= 0) {
             clockAnchor = performance.now() - pausedClock * 1000;
             game.clock = pausedClock;
             
-            if (!isAudioBroken && pausedClock >= MUSIC_DELAY - AUDIO_LEAD) {
-                // 用 game.clock 反推音乐位置，保证音画对齐
+            if (!isAudioBroken && pausedClock >= MUSIC_DELAY) {
                 try { bgm.currentTime = Math.max(0, pausedClock - MUSIC_DELAY); } catch(e) {}
                 if (!audioStarted) audioStarted = true;
                 if (startAudio()) audioSyncPending = true;
@@ -1182,16 +1192,16 @@ function gameLoop(time) {
             game.clock = 0;
             clockAnchor = performance.now();
             isPlaying = true;
-            // ★ 不再 reset audioStarted / pause / currentTime
         }
     } else if (isPlaying) {
         game.clock = (performance.now() - clockAnchor) / 1000;
     }
 
-    // ===== 音乐控制（独立于状态机，倒计时阶段也能预启动） =====
+    // ===== 音乐控制 =====
     updateMusic();
+    updateMusicHealth();
 
-    // ===== 游戏逻辑（仅在正式游玩时） =====
+    // ===== 游戏逻辑 =====
     if (isPlaying) {
         let phase = (game.clock % 0.4 + 0.4) % 0.4;
         game.bpmPulse = Math.pow(1.0 - phase / 0.4, 3); 
@@ -1205,12 +1215,10 @@ function gameLoop(time) {
             game.feedbackTimer -= dt;
             feedbackYOffset += dt * 50; 
         }
-
         for (let i = game.effects.length - 1; i >= 0; i--) { 
             game.effects[i].life -= dt; 
             if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
         }
-
         for (let n of game.notes) { 
             if (!n.judged && game.clock > n.time + BAD_WINDOW) { 
                 n.judged = true; game.miss++; game.combo = 0; 
@@ -1218,12 +1226,10 @@ function gameLoop(time) {
                 game.feedbackTimer = 0.6; feedbackYOffset = 0; 
             } 
         }
-
         if (game.clock > SONG_DURATION + MUSIC_DELAY) {
             bgm.pause(); state = 'RESULT';
             isGameLoopRunning = false;
             pauseBtn.style.display = 'none';
-            
             let finalScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
             if (currentUser) {
                 const bestScoreKey = 'rhythm_best_' + currentUser.name;
@@ -1320,7 +1326,6 @@ function drawGame(dt) {
 
         let w = LANE_W - 30, h = NOTE_H, x = currentX - w / 2;
         let isFinal = Math.abs(n.time - FINAL_CHORD_TIME) < 0.05;
-
         let alpha = Math.min(1, progress * 5);
 
         if (isFinal) {
@@ -1355,7 +1360,6 @@ function drawGame(dt) {
     for (let ef of game.effects) {
         let progress = 1.0 - (ef.life / 0.4);
         let easedProg = easeOutQuad(progress);
-        
         let size = 20 + easedProg * 80;
         if (ef.isMulti) size = 30 + easedProg * 110;
         else if (ef.isChord) size = 25 + easedProg * 95;
@@ -1366,10 +1370,8 @@ function drawGame(dt) {
         ctx.strokeStyle = color; 
         ctx.lineWidth = 5 - progress * 3; 
         ctx.shadowBlur = 15; ctx.shadowColor = color;
-        
         safeRoundRect(ctx, ef.x - size, ef.y - size/2, size*2, size, 10);
         ctx.stroke();
-        
         if (ef.isChord) {
             ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
             ctx.lineWidth = 2;
@@ -1386,21 +1388,17 @@ function drawGame(dt) {
 
     if (game.clock >= 0) {
         let musicProg = Math.max(0, Math.min(1, (game.clock - MUSIC_DELAY) / SONG_DURATION));
-        
         let barX = TRACK_X;
         let barY = SCREEN_H - 4; 
         let barW = TRACK_W;
         let barH = 4;
-
         ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.fillRect(barX, barY, barW, barH);
-
         let progGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
         progGrad.addColorStop(0, 'rgba(80, 200, 255, 0.8)');
         progGrad.addColorStop(1, 'rgba(100, 220, 255, 1.0)');
         ctx.fillStyle = progGrad;
         ctx.fillRect(barX, barY, barW * musicProg, barH);
-        
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.fillRect(barX + barW * musicProg - 2, barY, 2, barH);
     }
@@ -1419,14 +1417,11 @@ function drawGame(dt) {
         let comboText = game.combo.toString();
         let comboSize = Math.floor(52 * game.comboScale);
         ctx.font = `bold ${comboSize}px 'Segoe UI', sans-serif`;
-        
         let isAP = (game.good === 0 && game.bad === 0 && game.miss === 0);
         let isFC = (game.miss === 0);
-        
         let textWidth = ctx.measureText(comboText).width;
         let centerX = SCREEN_W / 2;
         let textY = 70;
-        
         if (isAP) {
             ctx.fillStyle = getAPGradient(centerX, textY, textWidth);
             ctx.shadowColor = 'rgba(255, 255, 255, 0.8)'; 
@@ -1437,10 +1432,8 @@ function drawGame(dt) {
             ctx.fillStyle = game.comboScale > 1.05 ? '#ffffff' : '#b4dcff';
             ctx.shadowColor = '#50c8ff';
         }
-        
         ctx.shadowBlur = 20; 
         ctx.fillText(comboText, centerX, textY);
-        
         ctx.font = 'bold 16px "Microsoft YaHei"'; 
         ctx.fillStyle = '#788cbe';
         ctx.shadowBlur = 0;
@@ -1460,17 +1453,14 @@ function drawGame(dt) {
     if (game.clock > 239.5) {
         let outroAlpha = Math.min(1, (game.clock - 239.5) * 2); 
         ctx.textAlign = 'center'; 
-        
         ctx.font = 'bold 180px Impact, sans-serif'; 
         ctx.fillStyle = `rgba(80, 200, 255, ${outroAlpha})`; 
         ctx.shadowBlur = 30; ctx.shadowColor = `rgba(80, 200, 255, ${outroAlpha})`;
         ctx.fillText('V.', SCREEN_W/2, 300);
-        
         ctx.font = 'bold 50px "Arial Black", sans-serif'; 
         ctx.fillStyle = `rgba(220, 220, 220, ${outroAlpha})`; 
         ctx.shadowBlur = 10; ctx.shadowColor = `rgba(255, 255, 255, ${outroAlpha})`;
         ctx.fillText('Welkin', SCREEN_W/2, 420);
-        
         ctx.font = '14px "Microsoft YaHei"'; 
         ctx.fillStyle = `rgba(150, 150, 150, ${outroAlpha})`; 
         ctx.shadowBlur = 0;
@@ -1495,7 +1485,6 @@ function drawGame(dt) {
         else if (game.clock > 98.3) vigAlpha = (101.3 - game.clock) / 3.0; 
         else vigAlpha = 1.0;
         vigAlpha = Math.min(1.0, Math.max(0.0, vigAlpha)) * 0.95; 
-        
         if (vigAlpha > 0) {
             let vigGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, SCREEN_H * 0.2, SCREEN_W/2, SCREEN_H/2, SCREEN_W * 0.8);
             vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -1512,35 +1501,25 @@ function drawGame(dt) {
         if (extProg < 0.23) extAlpha = extProg / 0.23; 
         else if (extProg > 0.77) extAlpha = (1.0 - extProg) / 0.23; 
         else extAlpha = 1.0;
-        
         extAlpha = Math.max(0, Math.min(1, extAlpha)) * 0.99; 
-        
         if (extAlpha > 0) {
             let shrink = easeOutQuad(extProg) * 350; 
-            
             let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
             gradTop.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
             gradTop.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradTop;
-            ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
-
+            ctx.fillStyle = gradTop; ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
             let gradBot = ctx.createLinearGradient(0, SCREEN_H, 0, SCREEN_H - (shrink + 50));
             gradBot.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
             gradBot.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradBot;
-            ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
-
+            ctx.fillStyle = gradBot; ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
             let gradLeft = ctx.createLinearGradient(0, 0, shrink + 50, 0);
             gradLeft.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
             gradLeft.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradLeft;
-            ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
-
+            ctx.fillStyle = gradLeft; ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
             let gradRight = ctx.createLinearGradient(SCREEN_W, 0, SCREEN_W - (shrink + 50), 0);
             gradRight.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
             gradRight.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradRight;
-            ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
+            ctx.fillStyle = gradRight; ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
         }
     }
 
@@ -1550,34 +1529,25 @@ function drawGame(dt) {
         else if (game.clock > 229.5) fogAlpha = (231.0 - game.clock) / 1.5; 
         else fogAlpha = 1.0;
         fogAlpha = Math.min(1.0, Math.max(0.0, fogAlpha)) * 0.92; 
-        
         if (fogAlpha > 0) {
             let fogProgress = Math.min(1.0, Math.max(0.0, (game.clock - 210.0) / 21.0));
             let shrink = easeOutQuad(fogProgress) * 115; 
-            
             let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
             gradTop.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
             gradTop.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradTop;
-            ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
-
+            ctx.fillStyle = gradTop; ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
             let gradBot = ctx.createLinearGradient(0, SCREEN_H, 0, SCREEN_H - (shrink + 50));
             gradBot.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
             gradBot.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradBot;
-            ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
-
+            ctx.fillStyle = gradBot; ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
             let gradLeft = ctx.createLinearGradient(0, 0, shrink + 50, 0);
             gradLeft.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
             gradLeft.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradLeft;
-            ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
-
+            ctx.fillStyle = gradLeft; ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
             let gradRight = ctx.createLinearGradient(SCREEN_W, 0, SCREEN_W - (shrink + 50), 0);
             gradRight.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
             gradRight.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradRight;
-            ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
+            ctx.fillStyle = gradRight; ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
         }
     }
 
@@ -1598,7 +1568,6 @@ function drawGame(dt) {
 
 function drawResult() {
     ctx.clearRect(0, 0, SCREEN_W, SCREEN_H);
-    
     let bgGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, 100, SCREEN_W/2, SCREEN_H/2, SCREEN_W);
     bgGrad.addColorStop(0, '#0a1525'); bgGrad.addColorStop(1, '#020305');
     ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
@@ -1616,7 +1585,6 @@ function drawResult() {
     let scoreStr = score.toString().padStart(7, '0');
     let scoreWidth = ctx.measureText(scoreStr).width;
     let centerX = SCREEN_W / 2;
-    
     if (game.perfect === game.notes.length) {
         ctx.fillStyle = getAPGradient(centerX, 210, scoreWidth);
         ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
