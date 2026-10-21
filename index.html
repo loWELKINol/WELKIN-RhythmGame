@@ -75,7 +75,9 @@
 
         /* ================= iM 系统样式 ================= */
         #imBtn {
-            position: absolute; top: 90px; left: 20px;
+            position: absolute; 
+            top: 105px; /* 移到账号框下方 */
+            left: 25px; /* 对齐账号框内的头像左侧 */
             width: 56px; height: 56px; border-radius: 50%;
             background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
             border: 2px solid #50c8ff;
@@ -90,6 +92,9 @@
         #imBtn .im-text {
             color: #fff; font-size: 24px; font-family: 'Arial Black', sans-serif;
             font-style: italic; text-shadow: 0 0 10px #50c8ff; letter-spacing: -1px;
+            display: block; 
+            line-height: 1; 
+            padding-right: 2px; /* 微调斜体带来的视觉偏移，使字绝对居中 */
         }
         
         #im-screen {
@@ -173,7 +178,7 @@
         /* 评论区 */
         .im-comments { margin-top: 30px; }
         .im-comment { display: flex; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; }
-        .im-comment-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .im-comment-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: flex; justify-content: center; align-items: center; font-size: 24px; }
         .im-comment-content { flex: 1; }
         .im-comment-name { font-size: 14px; color: #aaa; margin-bottom: 5px; }
         .im-comment-text { font-size: 15px; color: #ddd; line-height: 1.5; }
@@ -231,11 +236,20 @@
                 <!-- 评论区 -->
                 <div class="im-comments">
                     <div class="im-comment">
-                        <!-- 用 HTML/CSS 画的粉色猫猫头像 -->
-                        <div class="im-comment-avatar" style="background: #ffb6c1; display: flex; justify-content: center; align-items: center; font-size: 24px; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
+                        <!-- 粉色猫猫头像 -->
+                        <div class="im-comment-avatar" style="background: #ffb6c1; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
                         <div class="im-comment-content">
                             <div class="im-comment-name">NEKO</div>
                             <div class="im-comment-text">好耶！</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 愤怒评论 -->
+                    <div class="im-comment">
+                        <div class="im-comment-avatar" style="background: #ffcccc; border: 2px solid #ff0000; box-shadow: 0 0 10px rgba(255,0,0,0.5);">😡</div>
+                        <div class="im-comment-content">
+                            <div class="im-comment-name">区</div>
+                            <div class="im-comment-text">啥时候出新歌！</div>
                         </div>
                     </div>
                 </div>
@@ -326,6 +340,7 @@ let clockAnchor = 0;
 let audioStarted = false;
 let audioUnlocked = false;
 let lastLaneHitTime = [0, 0, 0, 0];
+let isAudioBroken = false; // 新增：音频彻底损坏标记
 
 let resumeCountdown = 0;
 let pausedClock = 0;
@@ -335,7 +350,6 @@ let currentUser = null;
 let tempAvatarBase64 = '';
 
 // ================= iM 系统逻辑 =================
-let imLiked = false;
 const baseLikes = 0;
 
 function updateImLikesUI() {
@@ -552,6 +566,7 @@ function unlockAudio() {
             bgm.pause();
             bgm.currentTime = 0;
             bgm.muted = false;
+            isAudioBroken = false; // 解锁成功，重置损坏状态
         }).catch(() => { bgm.muted = false; });
     }
 }
@@ -708,6 +723,7 @@ function resetGameData() {
     feedbackYOffset = 0;
     isPlaying = false;
     audioStarted = false;
+    isAudioBroken = false; // 重置音频损坏状态
     clockAnchor = 0;
     resumeCountdown = 0;
     pausedClock = 0;
@@ -735,6 +751,9 @@ function startGame() {
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
         bgm.pause();
+        // 强制刷新音频流，防止之前的状态遗留
+        bgm.src = 'V.mp3';
+        bgm.load();
         try { bgm.currentTime = 0; } catch(e) {}
         
         resetGameData();
@@ -831,7 +850,11 @@ function resumeGame() {
     state = 'RESUMING';
     pauseModal.classList.remove('show');
     
-    try { bgm.currentTime = pausedAudioPos; } catch(e) {}
+    // 恢复时，给音频 300ms 缓冲
+    if (!isAudioBroken) {
+        bgm.load(); // 强制重新加载以防状态损坏
+        try { bgm.currentTime = pausedAudioPos; } catch(e) {}
+    }
     
     setTimeout(() => {
         state = 'GAME';
@@ -848,6 +871,9 @@ function restartGame() {
     pauseModal.classList.remove('show');
     
     bgm.pause();
+    // 修复：重开时彻底重置音频元素，解决“重开没声音”的Bug
+    bgm.src = 'V.mp3';
+    bgm.load();
     try { bgm.currentTime = 0; } catch(e) {}
     
     setTimeout(() => {
@@ -901,7 +927,7 @@ canvas.addEventListener('pointerdown', e => {
         
         if (lane >= 0 && lane < 4) {
             let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
-            if (Math.abs(x - laneCenter) <= 70) { 
+            if (Math.abs(x - laneCenter) <= 80) { // 从 70 改为 80
                 game.keyHold[lane] = true; 
                 judgeLane(lane);
             }
@@ -924,7 +950,7 @@ canvas.addEventListener('touchstart', e => {
             let lane = Math.floor((x - TRACK_X) / LANE_W);
             if (lane >= 0 && lane < 4) {
                 let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
-                if (Math.abs(x - laneCenter) <= 70) {
+                if (Math.abs(x - laneCenter) <= 80) { // 从 70 改为 80
                     game.keyHold[lane] = true; 
                     judgeLane(lane);
                 }
@@ -979,9 +1005,9 @@ function gameLoop(time) {
             clockAnchor = performance.now() - pausedClock * 1000;
             game.clock = pausedClock;
             
-            if (audioStarted) {
+            if (audioStarted && !isAudioBroken) {
                 bgm.play().catch(e => console.warn("恢复音乐失败:", e));
-            } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
+            } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2 && !isAudioBroken) {
                 audioStarted = true;
                 bgm.currentTime = 0;
                 bgm.play().catch(e => console.warn("恢复音乐失败:", e));
@@ -1013,7 +1039,7 @@ function gameLoop(time) {
     } else if (isPlaying) {
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
+        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2 && !isAudioBroken) {
             audioStarted = true;
             bgm.muted = false;
             bgm.currentTime = 0;
@@ -1024,10 +1050,16 @@ function gameLoop(time) {
             });
         }
 
-        if (audioStarted && bgm.paused && game.clock > 0.5 && game.clock < SONG_DURATION) {
+        // ====== 严重修复：防背刺/断流导致彻底无声 ======
+        if (audioStarted && bgm.paused && game.clock > 0.5 && game.clock < SONG_DURATION && !isAudioBroken) {
             const p = bgm.play();
             if (p && p.catch) {
-                p.catch(() => { audioStarted = false; });
+                p.catch(() => { 
+                    // 如果强制拉起失败，说明音频流已经彻底死锁
+                    console.warn("音频流失效，降级为纯系统时钟");
+                    audioStarted = false; 
+                    isAudioBroken = true; // 标记损坏，不再重试，防止无限循环爆死
+                });
             }
         }
 
