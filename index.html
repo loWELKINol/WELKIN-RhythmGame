@@ -269,4 +269,960 @@ let displayScore = 0;
 let displayAcc = 100.00;
 let feedbackYOffset = 0; 
 
-//
+// ====== 严格保护屏幕尺寸计算，防止出现 NaN / Infinity 导致画布崩溃 ======
+function resize() {
+    const winW = window.innerWidth || 800;
+    const winH = window.innerHeight || 600;
+    const winRatio = winW / winH;
+
+    if (winRatio < 1) { // 竖屏
+        SCREEN_W = 800;
+        SCREEN_H = 800 / winRatio;
+    } else { // 横屏
+        SCREEN_H = 600;
+        SCREEN_W = 600 * winRatio;
+    }
+
+    TRACK_X = (SCREEN_W - TRACK_W) / 2;
+    JUDGE_Y = SCREEN_H - 120; 
+    
+    SCROLL_SPEED = 750 * (JUDGE_Y / 500);
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SCREEN_W * dpr;
+    canvas.height = SCREEN_H * dpr;
+    canvas.style.width = winW + 'px';
+    canvas.style.height = winH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (pauseBtn) {
+        pauseBtn.style.left = Math.max(15, TRACK_X - 60) + 'px';
+    }
+}
+window.addEventListener('resize', resize); 
+resize();
+
+// ================= 颜色渐变辅助函数（增加安全验证） =================
+function getAPGradient(x, y, width) {
+    let w = width || 100;
+    let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
+    g.addColorStop(0, '#ff4d4d');
+    g.addColorStop(0.2, '#ffcc00');
+    g.addColorStop(0.4, '#66ff66');
+    g.addColorStop(0.6, '#33ccff');
+    g.addColorStop(0.8, '#cc66ff');
+    g.addColorStop(1, '#ff4d4d');
+    return g;
+}
+
+function getFCGradient(x, y, width) {
+    let w = width || 100;
+    let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
+    g.addColorStop(0, '#b464ff');
+    g.addColorStop(1, '#64c8ff');
+    return g;
+}
+// ====================================================
+
+function unlockAudio() {
+    if (audioUnlocked) return;
+    bgm.muted = true;
+    const p = bgm.play();
+    if (p && p.then) {
+        p.then(() => {
+            bgm.pause();
+            bgm.currentTime = 0;
+            bgm.muted = false;
+            audioUnlocked = true;
+        }).catch(() => { bgm.muted = false; });
+    }
+}
+
+function AddNote(time, lane, startLane) {
+    game.notes.push({ time: time + CHART_OFFSET, lane: lane, startLane: startLane, judged: false, is_chord: false, is_multi: false });
+}
+
+function generateBeatmap() {
+    game.notes = [];
+    let t, i, j;
+    for (t = 2.0; t < 7.0; t += 0.8) { AddNote(t, 0, 0); AddNote(t + 0.4, 3, 3); }
+    AddNote(7.2, 1, 1); AddNote(7.6, 2, 2); 
+    for (i = 0; i < 15; i++) { t = 8.0 + i * 0.4; AddNote(t, i % 4, i % 4); if (i % 3 == 0) AddNote(t, (i + 1) % 4, (i + 1) % 4); else AddNote(t + 0.2, (i * 2) % 4, (i * 2) % 4); }
+    AddNote(14.4, 0, 0); AddNote(14.8, 3, 3); 
+    for (i = 0; i < 27; i++) { t = 15.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
+    for (i = 0; i < 8; i++) { t = 27.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); } }
+    for (i = 0; i < 8; i++) { t = 30.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else { AddNote(t, 1, 1); AddNote(t, 3, 3); } }
+    AddNote(33.2, 0, 0); AddNote(33.2, 1, 1); AddNote(33.2, 2, 2); AddNote(33.2, 3, 3);
+    for (i = 0; i < 25; i++) { t = 34.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 2, 2); } else { AddNote(t, (i * 3) % 4, (i * 3) % 4); } }
+    for (i = 0; i < 35; i++) { t = 45.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else if (i % 3 == 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
+    
+    // ================= 59.0 ~ 69.2 双押段变难 =================
+    for (i = 0; i < 25; i++) { 
+        t = 59.0 + i * 0.4; 
+        if (i < 12) { // 前 4.8 秒（配置 A：错位交叉双押）
+            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 2, 2); AddNote(t + 0.2, 1, 1); }
+            else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 0, 0); }
+            else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 2, 2); }
+            else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 1, 1); }
+        } else { // 后 5 秒（配置 B：大跨度交替双押）
+            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 1, 1); }
+            else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.2, 3, 3); }
+            else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 3, 3); }
+            else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 0, 0); }
+        }
+    }
+    // ========================================================
+
+    AddNote(69.2, 0, 0); AddNote(69.6, 3, 3); AddNote(70.0, 1, 1); AddNote(70.4, 2, 2); AddNote(70.8, 0, 0); AddNote(71.2, 3, 3); 
+    for (i = 0; i < 20; i++) { t = 72.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 0, 0); } }
+    for (i = 0; i < 10; i++) { t = 80.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); } }
+    for (i = 0; i < 58; i++) { t = 85.3 + i * 0.1; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); }
+    for (i = 0; i < 60; i++) { t = 91.0 + i * 0.1; AddNote(t, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
+    AddNote(97.0, 0, 0); AddNote(97.0, 3, 3); AddNote(97.4, 1, 1); AddNote(97.8, 2, 2); 
+    
+    // ================= 98.0 ~ 110.0 Y配置的镜像段 =================
+    for (i = 0; i < 30; i++) { 
+        t = 98.0 + i * 0.4; 
+        if (i < 15) { // 98.0 ~ 104.0（镜像 Y）
+            if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } 
+            else { AddNote(t + 0.1, 3, 3); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 1, 1); }
+        } else { // 104.0 ~ 110.0（原版 Y）
+            if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } 
+            else { AddNote(t + 0.1, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 2, 2); }
+        }
+    }
+    // =============================================================
+
+    for (i = 0; i < 30; i++) { t = 111.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } else if (i % 3 == 1) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); } }
+    for (i = 0; i < 15; i++) { t = 123.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 2, 2); }
+    for (i = 0; i < 15; i++) { t = 130.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); } else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); } else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t, 3, 3); } else { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); } }
+    for (i = 0; i < 27; i++) { t = 137.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } }
+    AddNote(148.4, 1, 1); AddNote(148.8, 2, 2); 
+    for (i = 0; i < 30; i++) { 
+        t = 149.0 + i * 0.4; 
+        if (i % 4 == 0) { 
+            AddNote(t, 0, 0); AddNote(t, 3, 3); 
+            AddNote(t + 0.2, (i % 8 == 0) ? 1 : 2, (i % 8 == 0) ? 1 : 2);
+        } else if (i % 4 == 2) { 
+            AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3);
+            AddNote(t + 0.2, 2, 2);
+        } else { 
+            AddNote(t, 1, 1); AddNote(t, 2, 2);
+            AddNote(t + 0.2, (i % 4 == 1) ? 0 : 3, (i % 4 == 1) ? 0 : 3);
+        }
+    }
+    for (i = 0; i < 25; i++) { 
+        t = 161.0 + i * 0.4; 
+        if (i % 3 == 0) { 
+            AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3);
+            AddNote(t + 0.2, 2, 2);
+        } else if (i % 3 == 1) { 
+            AddNote(t, 0, 0); AddNote(t, 2, 2);
+            AddNote(t + 0.2, (i % 6 == 1) ? 3 : 1, (i % 6 == 1) ? 3 : 1);
+        } else { 
+            AddNote(t, 1, 1); AddNote(t, 2, 2);
+            AddNote(t + 0.2, (i % 6 == 2) ? 0 : 3, (i % 6 == 2) ? 0 : 3);
+        }
+    }
+    for (i = 0; i < 7; i++) { t = 171.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
+    AddNote(174.0, 0, 0); AddNote(174.4, 3, 3); AddNote(174.8, 1, 1); 
+    for (i = 0; i < 25; i++) { t = 175.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 3, 3); } else { AddNote(t, (i * 2) % 4, (i * 2) % 4); } }
+    for (i = 0; i < 25; i++) { t = 185.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } }
+    for (i = 0; i < 20; i++) { t = 195.0 + i * 0.4; AddNote(t, i % 2 == 0 ? 0 : 3, i % 2 == 0 ? 0 : 3); AddNote(t + 0.1, i % 2 == 0 ? 3 : 0, i % 2 == 0 ? 3 : 0); }
+    for (i = 0; i < 12; i++) { t = 204.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
+    AddNote(209.0, 1, 1); AddNote(209.4, 2, 2); AddNote(209.8, 3, 3); 
+    
+    for (i = 0; i < 50; i++) { 
+        t = 210.0 + i * 0.4; 
+        if (i < 25) {
+            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); }
+            else if (i % 4 == 1) { AddNote(t, 2, 3); AddNote(t + 0.2, 1, 1); }
+            else if (i % 4 == 2) { AddNote(t, 1, 3); AddNote(t + 0.2, 2, 2); }
+            else { AddNote(t, 0, 1); AddNote(t + 0.2, 3, 3); } 
+        } else {
+            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); }
+            else if (i % 4 == 1) { AddNote(t, 1, 0); AddNote(t + 0.2, 2, 2); }
+            else if (i % 4 == 2) { AddNote(t, 2, 0); AddNote(t + 0.2, 1, 1); }
+            else { AddNote(t, 3, 2); AddNote(t + 0.2, 0, 0); } 
+        }
+    }
+    for (i = 0; i < 8; i++) { t = 230.0 + i * 0.4; AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
+    for (i = 0; i < 15; i++) { t = 233.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
+    AddNote(239.0, 0, 0); AddNote(239.0, 1, 1); AddNote(239.0, 2, 2); AddNote(239.0, 3, 3);
+
+    for (i = 0; i < game.notes.length; i++) { 
+        let count = 0; 
+        for (j = 0; j < game.notes.length; j++) { 
+            if (Math.abs(game.notes[i].time - game.notes[j].time) < 0.03) count++; 
+        } 
+        if (count >= 2) game.notes[i].is_chord = true; 
+        if (count >= 3) game.notes[i].is_multi = true; 
+    }
+}
+
+function resetGameData() {
+    game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
+    generateBeatmap();
+    displayScore = 0;
+    displayAcc = 100.00;
+    feedbackYOffset = 0;
+    isPlaying = false;
+    audioStarted = false;
+    clockAnchor = 0;
+    resumeCountdown = 0;
+    pausedClock = 0;
+    pausedAudioPos = 0;
+    lastLaneHitTime = [0, 0, 0, 0];
+}
+
+function transitionTo(nextState, callback) {
+    transitionMask.classList.add('show');
+    setTimeout(() => {
+        if (callback) callback();
+        state = nextState;
+        setTimeout(() => {
+            transitionMask.classList.remove('show');
+        }, 100);
+    }, 400);
+}
+
+function startGame() {
+    if (state !== 'MENU') return;
+    state = 'LOADING'; 
+    document.getElementById('loading-text').style.display = 'none';
+    startScreen.style.display = 'none';
+    
+    transitionTo('GAME', () => {
+        pauseBtn.style.display = 'flex';
+        bgm.currentTime = 0; 
+        bgm.pause();
+        
+        resetGameData();
+        lastTime = performance.now();
+        
+        state = 'GAME';
+        
+        isGameLoopRunning = true;
+        if (reqAnimId) cancelAnimationFrame(reqAnimId);
+        reqAnimId = requestAnimationFrame(gameLoop);
+    });
+}
+
+function spawnEffect(lane, type, isChord, isMulti) {
+    const cx = TRACK_X + lane * LANE_W + LANE_W / 2;
+    game.effects.push({ x: cx, y: JUDGE_Y, life: 0.4, type: type, isChord: isChord, isMulti: isMulti });
+}
+
+function judgeLane(lane) {
+    let now = performance.now();
+    if (now - lastLaneHitTime[lane] < 30) return;
+    lastLaneHitTime[lane] = now;
+
+    let bestIdx = -1, bestDt = 999;
+    for (let i = 0; i < game.notes.length; i++) {
+        let n = game.notes[i];
+        if (n.judged || n.lane !== lane) continue;
+        let dt = Math.abs(n.time - game.clock);
+        if (dt <= BAD_WINDOW && dt < bestDt) { bestDt = dt; bestIdx = i; }
+    }
+    if (bestIdx !== -1) {
+        let n = game.notes[bestIdx]; n.judged = true;
+        if (bestDt <= PERFECT_WINDOW) {
+            game.perfect++; game.weightSum += 1.0; game.combo++; game.feedback = "PERFECT"; game.feedbackType = 'P'; game.judgeLineGlow = 1.0; 
+            
+            let shake = 2.5;
+            if (n.is_multi) shake = 5.0;
+            else if (n.is_chord) shake = 3.5;
+            game.screenShake = shake;
+            
+            spawnEffect(lane, 0, n.is_chord, n.is_multi);
+        } else if (bestDt <= GOOD_WINDOW) {
+            game.good++; game.weightSum += 0.65; game.combo++; game.feedback = "GOOD"; game.feedbackType = 'G'; game.judgeLineGlow = 0.6; game.screenShake = 1.5; spawnEffect(lane, 1, n.is_chord, n.is_multi);
+        } else {
+            game.bad++; game.combo = 0; game.feedback = "BAD"; game.feedbackType = 'B'; spawnEffect(lane, 2, n.is_chord, n.is_multi);
+        }
+        game.feedbackTimer = 0.6; game.comboScale = 1.5; feedbackYOffset = 0;
+        if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+        if (Math.abs(n.time - FINAL_CHORD_TIME) < 0.05) game.flashAlpha = 1.0;
+    }
+}
+
+pauseBtn.addEventListener('pointerdown', handlePauseClick);
+pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
+
+function handlePauseClick(e) {
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    if (state !== 'GAME' || game.clock < 0 || resumeCountdown > 0) return;
+
+    if (!isConfirmingPause) {
+        isConfirmingPause = true;
+        pauseBtn.classList.add('confirming');
+        pauseBtn.innerText = '再点';
+        pauseBtn.style.fontSize = '12px';
+        pauseClickTimer = setTimeout(() => {
+            isConfirmingPause = false;
+            pauseBtn.classList.remove('confirming');
+            pauseBtn.innerText = '⏸';
+            pauseBtn.style.fontSize = '16px';
+        }, 1000);
+    } else {
+        clearTimeout(pauseClickTimer);
+        isConfirmingPause = false;
+        pauseBtn.classList.remove('confirming');
+        pauseBtn.innerText = '⏸';
+        pauseBtn.style.fontSize = '16px';
+        triggerPause();
+    }
+}
+
+function triggerPause() {
+    if (state !== 'GAME') return;
+    state = 'PAUSED';
+    isGameLoopRunning = false; 
+    if (reqAnimId) cancelAnimationFrame(reqAnimId);
+    pausedClock = game.clock;
+    try { pausedAudioPos = bgm.currentTime; } catch(e) { pausedAudioPos = 0; }
+    bgm.pause();
+    pauseModal.classList.add('show');
+}
+
+function resumeGame() {
+    if (state !== 'PAUSED') return;
+    state = 'RESUMING';
+    pauseModal.classList.remove('show');
+    setTimeout(() => {
+        state = 'GAME';
+        resumeCountdown = 3.0;
+        lastTime = performance.now();
+        isGameLoopRunning = true;
+        reqAnimId = requestAnimationFrame(gameLoop);
+    }, 300);
+}
+
+function restartGame() {
+    if (state !== 'PAUSED') return;
+    state = 'RESUMING';
+    pauseModal.classList.remove('show');
+    setTimeout(() => {
+        state = 'GAME';
+        bgm.currentTime = 0;
+        bgm.pause();
+        resetGameData();
+        lastTime = performance.now();
+        isGameLoopRunning = true;
+        reqAnimId = requestAnimationFrame(gameLoop);
+    }, 300);
+}
+
+function quitGame() {
+    if (state !== 'PAUSED') return;
+    state = 'LOADING';
+    pauseModal.classList.remove('show');
+    isGameLoopRunning = false;
+    if (reqAnimId) cancelAnimationFrame(reqAnimId);
+    
+    transitionTo('MENU', () => {
+        pauseBtn.style.display = 'none';
+        bgm.pause(); bgm.currentTime = 0;
+        showStartScreen();
+    });
+}
+
+function handleGlobalStart(e) {
+    if (state === 'MENU' && startScreen.style.display !== 'none') {
+        if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
+        if (e.cancelable) e.preventDefault();
+        unlockAudio();
+        startGame();
+    }
+}
+window.addEventListener('pointerdown', handleGlobalStart);
+window.addEventListener('touchstart', handleGlobalStart, { passive: false });
+
+canvas.addEventListener('pointerdown', e => {
+    if (e.cancelable) e.preventDefault();
+    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
+        let lane = Math.floor((x - TRACK_X) / LANE_W);
+        
+        if (lane >= 0 && lane < 4) {
+            let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
+            if (Math.abs(x - laneCenter) <= 70) { 
+                game.keyHold[lane] = true; 
+                judgeLane(lane);
+            }
+        }
+    } else if (state === 'RESULT') {
+        const rect = canvas.getBoundingClientRect();
+        const y = (e.clientY - rect.top) / rect.height * SCREEN_H;
+        const x = (e.clientX - rect.left) / rect.width * SCREEN_W;
+        if (y > resultButtonY - 30 && y < resultButtonY + 30 && x > SCREEN_W/2 - 100 && x < SCREEN_W/2 + 100) returnToMenu();
+    }
+});
+
+canvas.addEventListener('touchstart', e => {
+    if (e.cancelable) e.preventDefault();
+    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
+        const rect = canvas.getBoundingClientRect();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const x = (touch.clientX - rect.left) / rect.width * SCREEN_W;
+            let lane = Math.floor((x - TRACK_X) / LANE_W);
+            if (lane >= 0 && lane < 4) {
+                let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
+                if (Math.abs(x - laneCenter) <= 70) {
+                    game.keyHold[lane] = true; 
+                    judgeLane(lane);
+                }
+            }
+        }
+    }
+}, { passive: false });
+
+canvas.addEventListener('pointerup', () => { game.keyHold = [false,false,false,false]; });
+canvas.addEventListener('touchend', () => { game.keyHold = [false,false,false,false]; });
+canvas.addEventListener('pointercancel', () => { game.keyHold = [false,false,false,false]; });
+
+window.addEventListener('keydown', e => {
+    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0 && !e.repeat) {
+        if (e.key === 'c' || e.key === 'C') { game.keyHold[0]=true; judgeLane(0); }
+        if (e.key === 'v' || e.key === 'V') { game.keyHold[1]=true; judgeLane(1); }
+        if (e.key === 'b' || e.key === 'B') { game.keyHold[2]=true; judgeLane(2); }
+        if (e.key === 'n' || e.key === 'N') { game.keyHold[3]=true; judgeLane(3); }
+    }
+    if (e.key === 'r' || e.key === 'R') returnToMenu();
+    if (e.key === 'Escape' && state === 'GAME') triggerPause();
+});
+window.addEventListener('keyup', e => {
+    if (e.key === 'c' || e.key === 'C') game.keyHold[0]=false;
+    if (e.key === 'v' || e.key === 'V') game.keyHold[1]=false;
+    if (e.key === 'b' || e.key === 'B') game.keyHold[2]=false;
+    if (e.key === 'n' || e.key === 'N') game.keyHold[3]=false;
+});
+
+function returnToMenu() {
+    if (state === 'MENU') return;
+    state = 'LOADING';
+    isGameLoopRunning = false;
+    if (reqAnimId) cancelAnimationFrame(reqAnimId);
+
+    transitionTo('MENU', () => {
+        pauseBtn.style.display = 'none';
+        bgm.pause(); bgm.currentTime = 0;
+        showStartScreen();
+    });
+}
+
+function gameLoop(time) {
+    if (!isGameLoopRunning || state !== 'GAME') return;
+    
+    let dt = (time - lastTime) / 1000; lastTime = time;
+    if (dt > 0.1) dt = 0.1; 
+    
+    if (resumeCountdown > 0) {
+        resumeCountdown -= dt;
+        if (resumeCountdown <= 0) {
+            clockAnchor = performance.now() - pausedClock * 1000;
+            game.clock = pausedClock;
+            
+            if (audioStarted) {
+                try { bgm.currentTime = pausedAudioPos; } catch(e) {}
+                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+            } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
+                audioStarted = true;
+                bgm.currentTime = 0;
+                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+            }
+        }
+        drawGame(dt);
+        let cd = Math.ceil(resumeCountdown);
+        if (cd >= 1 && cd <= 3) {
+            ctx.textAlign = 'center'; 
+            ctx.font = 'bold 180px "Microsoft YaHei"'; 
+            ctx.fillStyle = '#ffe664'; 
+            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
+            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
+            ctx.shadowBlur = 0;
+        }
+        reqAnimId = requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    if (game.clock < 0) {
+        game.clock += dt;
+        if (game.clock >= 0) {
+            game.clock = 0;
+            clockAnchor = performance.now();
+            isPlaying = true;
+            audioStarted = false;
+            if (bgm) { bgm.pause(); bgm.currentTime = 0; }
+        }
+    } else if (isPlaying) {
+        game.clock = (performance.now() - clockAnchor) / 1000;
+
+        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
+            audioStarted = true;
+            bgm.muted = false;
+            bgm.currentTime = 0;
+            const p = bgm.play();
+            if (p && p.catch) p.catch(e => {
+                console.warn("音乐播放失败:", e);
+                audioStarted = false;
+            });
+        }
+
+        let phase = (game.clock % 0.4 + 0.4) % 0.4;
+        game.bpmPulse = Math.pow(1.0 - phase / 0.4, 3); 
+        
+        if (game.screenShake > 0) game.screenShake = lerp(game.screenShake, 0, dt * 15);
+        if (game.judgeLineGlow > 0) game.judgeLineGlow = lerp(game.judgeLineGlow, 0, dt * 8);
+        
+        if (game.comboScale > 1) game.comboScale = lerp(game.comboScale, 1, dt * 10);
+        if (game.flashAlpha > 0) game.flashAlpha = lerp(game.flashAlpha, 0, dt * 5);
+        
+        if (game.feedbackTimer > 0) {
+            game.feedbackTimer -= dt;
+            feedbackYOffset += dt * 50; 
+        }
+
+        for (let i = game.effects.length - 1; i >= 0; i--) { 
+            game.effects[i].life -= dt; 
+            if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
+        }
+
+        for (let n of game.notes) { 
+            if (!n.judged && game.clock > n.time + BAD_WINDOW) { 
+                n.judged = true; game.miss++; game.combo = 0; 
+                game.feedback = "MISS"; game.feedbackType = 'M'; 
+                game.feedbackTimer = 0.6; feedbackYOffset = 0; 
+            } 
+        }
+
+        if (game.clock > SONG_DURATION + MUSIC_DELAY) {
+            bgm.pause(); state = 'RESULT';
+            isGameLoopRunning = false;
+            pauseBtn.style.display = 'none';
+            
+            let finalScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
+            if (currentUser) {
+                const bestScoreKey = 'rhythm_best_' + currentUser.name;
+                const oldBest = parseInt(localStorage.getItem(bestScoreKey) || '0');
+                if (finalScore > oldBest) localStorage.setItem(bestScoreKey, finalScore.toString());
+                updateHighScoreUI();
+            }
+            drawResult();
+            return;
+        }
+    }
+
+    drawGame(dt);
+    reqAnimId = requestAnimationFrame(gameLoop);
+}
+
+function drawGame(dt) {
+    ctx.save();
+    if (game.screenShake > 0.1) {
+        ctx.translate((Math.random()-0.5)*game.screenShake, (Math.random()-0.5)*game.screenShake);
+    }
+    
+    let targetScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
+    displayScore = lerp(displayScore, targetScore, dt * 15); 
+    if (Math.abs(displayScore - targetScore) < 1) displayScore = targetScore;
+
+    let totalJudged = game.perfect + game.good + game.bad + game.miss;
+    let targetAcc = totalJudged === 0 ? 100.00 : ((game.perfect + game.good * 0.65) / totalJudged) * 100;
+    displayAcc = lerp(displayAcc, targetAcc, dt * 15);
+    
+    let bgGrad = ctx.createLinearGradient(0, 0, 0, SCREEN_H);
+    bgGrad.addColorStop(0, '#080c14'); bgGrad.addColorStop(1, '#020305');
+    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+
+    if (game.clock > 0) {
+        let waveOffset = (game.clock * 60) % 150;
+        for (let i = 0; i < 15; i++) {
+            let waveY = 80 + i * 130 + waveOffset;
+            if (waveY > SCREEN_H) continue;
+            ctx.strokeStyle = `rgba(30, 60, 100, ${0.1 + game.bpmPulse * 0.2})`;
+            ctx.lineWidth = 2 + game.bpmPulse * 2;
+            ctx.beginPath(); 
+            ctx.moveTo(0, waveY); ctx.lineTo(TRACK_X, waveY);
+            ctx.moveTo(TRACK_X + TRACK_W, waveY); ctx.lineTo(SCREEN_W, waveY);
+            ctx.stroke();
+        }
+    }
+
+    let trackGrad = ctx.createLinearGradient(TRACK_X, 0, TRACK_X + TRACK_W, 0);
+    trackGrad.addColorStop(0, 'rgba(20, 25, 38, 0.8)');
+    trackGrad.addColorStop(0.5, 'rgba(30, 38, 55, 0.9)');
+    trackGrad.addColorStop(1, 'rgba(20, 25, 38, 0.8)');
+    ctx.fillStyle = trackGrad; 
+    ctx.fillRect(TRACK_X, 0, TRACK_W, SCREEN_H);
+
+    ctx.lineWidth = 1 + game.bpmPulse * 2;
+    ctx.strokeStyle = `rgba(80, 150, 255, ${0.2 + game.bpmPulse * 0.4})`;
+    for (let i = 0; i <= LANE_COUNT; i++) {
+        let x = TRACK_X + i * LANE_W;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, SCREEN_H); ctx.stroke();
+    }
+
+    for (let i = 0; i < 4; i++) {
+        if (game.keyHold[i]) {
+            let keyGrad = ctx.createLinearGradient(0, JUDGE_Y, 0, SCREEN_H);
+            keyGrad.addColorStop(0, 'rgba(50, 150, 255, 0.6)');
+            keyGrad.addColorStop(1, 'rgba(50, 150, 255, 0)');
+            ctx.fillStyle = keyGrad;
+            ctx.fillRect(TRACK_X + i * LANE_W + 2, JUDGE_Y, LANE_W - 4, SCREEN_H - JUDGE_Y);
+        }
+    }
+
+    let glowW = 8 + game.judgeLineGlow * 20 + game.bpmPulse * 6;
+    let glowA = 0.5 + game.judgeLineGlow * 0.5;
+    ctx.fillStyle = `rgba(80, 180, 255, ${glowA})`;
+    ctx.fillRect(TRACK_X, JUDGE_Y - glowW/2, TRACK_W, glowW);
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 10; ctx.shadowColor = '#50c8ff';
+    ctx.fillRect(TRACK_X, JUDGE_Y - 2, TRACK_W, 4);
+    ctx.shadowBlur = 0; 
+
+    for (let n of game.notes) {
+        if (n.judged) continue;
+        let yPos = JUDGE_Y - (n.time - game.clock) * SCROLL_SPEED;
+        if (yPos < -NOTE_H*4 || yPos > SCREEN_H + NOTE_H*4) continue;
+
+        let progress = Math.max(0, Math.min(1, (yPos - (-NOTE_H)) / (JUDGE_Y - (-NOTE_H))));
+        let localP = Math.min(1, progress / 0.6);
+        let smoothP = easeOutQuad(localP);
+        
+        let startX = TRACK_X + n.startLane * LANE_W + LANE_W / 2;
+        let endX = TRACK_X + n.lane * LANE_W + LANE_W / 2;
+        let currentX = lerp(startX, endX, smoothP);
+
+        let w = LANE_W - 30, h = NOTE_H, x = currentX - w / 2;
+        let isFinal = Math.abs(n.time - FINAL_CHORD_TIME) < 0.05;
+
+        let alpha = Math.min(1, progress * 5);
+
+        if (isFinal) {
+            for (let t = 30; t > 0; t--) {
+                let tailY = yPos - t * 25;
+                if (tailY > SCREEN_H) continue;
+                ctx.fillStyle = t < 10 ? `rgba(180,230,255,${0.8 * alpha})` : (t < 20 ? `rgba(80,160,220,${0.6 * alpha})` : `rgba(20,60,120,${0.3 * alpha})`);
+                ctx.fillRect(x - t*2, tailY, w + t*4, h + 20);
+            }
+        } else {
+            for (let t = 3; t > 0; t--) {
+                let tailY = yPos - t * 15;
+                ctx.fillStyle = `rgba(50, 120, 200, ${(0.5 - t*0.15) * alpha})`;
+                ctx.fillRect(x + t*4, tailY, w - t*8, h);
+            }
+        }
+
+        ctx.fillStyle = isFinal ? `rgba(255,255,255,${alpha})` : `rgba(80,180,255,${alpha})`;
+        ctx.beginPath(); ctx.roundRect(x, yPos - h/2, w, h, 8); ctx.fill();
+        
+        ctx.fillStyle = `rgba(255,255,255,${0.8 * alpha})`; 
+        ctx.fillRect(x + 4, yPos - h/2 + 3, w - 8, 4);
+        
+        if (n.is_chord) {
+            ctx.lineWidth = 3; ctx.strokeStyle = `rgba(255,220,0,${alpha})`;
+            ctx.beginPath(); ctx.roundRect(x, yPos - h/2, w, h, 8); ctx.stroke();
+        }
+    }
+
+    for (let ef of game.effects) {
+        let progress = 1.0 - (ef.life / 0.4);
+        let easedProg = easeOutQuad(progress);
+        
+        let size = 20 + easedProg * 80;
+        if (ef.isMulti) size = 30 + easedProg * 110;
+        else if (ef.isChord) size = 25 + easedProg * 95;
+
+        let alpha = 1.0 - progress;
+        let color = ef.type === 0 ? `rgba(255, 230, 100, ${alpha})` : (ef.type === 1 ? `rgba(100, 200, 255, ${alpha})` : `rgba(120, 120, 120, ${alpha})`);
+        
+        ctx.strokeStyle = color; 
+        ctx.lineWidth = 5 - progress * 3; 
+        ctx.shadowBlur = 15; ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.roundRect(ef.x - size, ef.y - size/2, size*2, size, 10);
+        ctx.stroke();
+        
+        if (ef.isChord) {
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(ef.x - size * 1.1, ef.y - size/2 * 1.1, size * 2.2, size * 1.1, 12);
+            ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+    }
+
+    if (game.flashAlpha > 0) { 
+        ctx.fillStyle = `rgba(255,255,255,${game.flashAlpha * 0.8})`; 
+        ctx.fillRect(0, 0, SCREEN_W, SCREEN_H); 
+    }
+
+    if (game.clock >= 0) {
+        let musicProg = Math.max(0, Math.min(1, (game.clock - MUSIC_DELAY) / SONG_DURATION));
+        
+        let barX = TRACK_X;
+        let barY = SCREEN_H - 4; 
+        let barW = TRACK_W;
+        let barH = 4;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fillRect(barX, barY, barW, barH);
+
+        let progGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+        progGrad.addColorStop(0, 'rgba(80, 200, 255, 0.8)');
+        progGrad.addColorStop(1, 'rgba(100, 220, 255, 1.0)');
+        ctx.fillStyle = progGrad;
+        ctx.fillRect(barX, barY, barW * musicProg, barH);
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillRect(barX + barW * musicProg - 2, barY, 2, barH);
+    }
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 34px Consolas, sans-serif';
+    ctx.shadowBlur = 5; ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.fillText(Math.round(displayScore).toString().padStart(7, '0'), TRACK_X + TRACK_W + 30, 45);
+    
+    ctx.fillStyle = '#a0c0ff'; ctx.font = 'bold 20px Consolas, sans-serif';
+    ctx.fillText(displayAcc.toFixed(2) + '%', TRACK_X + TRACK_W + 30, 75);
+    ctx.shadowBlur = 0;
+
+    // ================= Combo 动态变色逻辑 =================
+    if (game.combo > 2) {
+        ctx.textAlign = 'center'; 
+        let comboText = game.combo.toString();
+        let comboSize = Math.floor(52 * game.comboScale);
+        ctx.font = `bold ${comboSize}px 'Segoe UI', sans-serif`;
+        
+        let isAP = (game.good === 0 && game.bad === 0 && game.miss === 0);
+        let isFC = (game.miss === 0);
+        
+        let textWidth = ctx.measureText(comboText).width;
+        let centerX = SCREEN_W / 2;
+        let textY = 70;
+        
+        if (isAP) {
+            ctx.fillStyle = getAPGradient(centerX, textY, textWidth);
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.8)'; 
+        } else if (isFC) {
+            ctx.fillStyle = getFCGradient(centerX, textY, textWidth);
+            ctx.shadowColor = 'rgba(100, 200, 255, 0.8)';
+        } else {
+            ctx.fillStyle = game.comboScale > 1.05 ? '#ffffff' : '#b4dcff';
+            ctx.shadowColor = '#50c8ff';
+        }
+        
+        ctx.shadowBlur = 20; 
+        ctx.fillText(comboText, centerX, textY);
+        
+        ctx.font = 'bold 16px "Microsoft YaHei"'; 
+        ctx.fillStyle = '#788cbe';
+        ctx.shadowBlur = 0;
+        ctx.fillText('C O M B O', centerX, 100);
+    }
+    // ====================================================
+
+    if (game.feedbackTimer > 0) {
+        let fbAlpha = Math.min(1, game.feedbackTimer * 4); 
+        ctx.textAlign = 'center'; 
+        ctx.font = 'bold 42px "Microsoft YaHei"';
+        ctx.fillStyle = game.feedbackType === 'P' ? `rgba(255,230,100,${fbAlpha})` : (game.feedbackType === 'G' ? `rgba(100,200,255,${fbAlpha})` : `rgba(150,150,150,${fbAlpha})`);
+        ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
+        ctx.fillText(game.feedback, SCREEN_W/2, JUDGE_Y - 130 - feedbackYOffset);
+        ctx.shadowBlur = 0;
+    }
+
+    if (game.clock > 239.5) {
+        let outroAlpha = Math.min(1, (game.clock - 239.5) * 2); 
+        ctx.textAlign = 'center'; 
+        
+        ctx.font = 'bold 180px Impact, sans-serif'; 
+        ctx.fillStyle = `rgba(80, 200, 255, ${outroAlpha})`; 
+        ctx.shadowBlur = 30; ctx.shadowColor = `rgba(80, 200, 255, ${outroAlpha})`;
+        ctx.fillText('V.', SCREEN_W/2, SCREEN_H * 0.4);
+        
+        ctx.font = 'bold 50px "Arial Black", sans-serif'; 
+        ctx.fillStyle = `rgba(220, 220, 220, ${outroAlpha})`; 
+        ctx.shadowBlur = 10; ctx.shadowColor = `rgba(255, 255, 255, ${outroAlpha})`;
+        ctx.fillText('Welkin', SCREEN_W/2, SCREEN_H * 0.6);
+        
+        ctx.font = '14px "Microsoft YaHei"'; 
+        ctx.fillStyle = `rgba(150, 150, 150, ${outroAlpha})`; 
+        ctx.shadowBlur = 0;
+        ctx.fillText('PRODUCED BY', SCREEN_W/2, SCREEN_H * 0.68);
+    }
+
+    let isVignette = (game.clock >= 85.3 && game.clock <= 101.3);
+    let isFog = (game.clock >= 210.0 && game.clock <= 231.0);
+    
+    if (isVignette || isFog) {
+        pauseBtn.style.opacity = "0.4";
+        pauseBtn.style.filter = "brightness(0.4)";
+    } else {
+        pauseBtn.style.opacity = "1";
+        pauseBtn.style.filter = "none";
+    }
+
+    if (isVignette) {
+        let vigAlpha = 0;
+        if (game.clock < 86.3) vigAlpha = (game.clock - 85.3); 
+        else if (game.clock > 98.3) vigAlpha = (101.3 - game.clock) / 3.0; 
+        else vigAlpha = 1.0;
+        vigAlpha = Math.min(1.0, Math.max(0.0, vigAlpha)) * 0.95; 
+        
+        if (vigAlpha > 0) {
+            let maxRadius = Math.max(SCREEN_W, SCREEN_H) * 0.8;
+            let vigGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, Math.min(SCREEN_W, SCREEN_H) * 0.3, SCREEN_W/2, SCREEN_H/2, maxRadius);
+            vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
+            vigGrad.addColorStop(0.4, 'rgba(0,0,0,0)'); 
+            vigGrad.addColorStop(1, `rgba(0,0,0,${vigAlpha})`);
+            ctx.fillStyle = vigGrad;
+            ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+        }
+    }
+
+    if (isFog) {
+        let fogAlpha = 0;
+        if (game.clock < 211.5) fogAlpha = (game.clock - 210.0) / 1.5; 
+        else if (game.clock > 229.5) fogAlpha = (231.0 - game.clock) / 1.5; 
+        else fogAlpha = 1.0;
+        fogAlpha = Math.min(1.0, Math.max(0.0, fogAlpha)) * 0.92; 
+        
+        if (fogAlpha > 0) {
+            let fogProgress = Math.min(1.0, Math.max(0.0, (game.clock - 210.0) / 21.0));
+            let shrink = easeOutQuad(fogProgress) * 115; 
+            
+            let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
+            gradTop.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
+            gradTop.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradTop;
+            ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
+
+            let gradBot = ctx.createLinearGradient(0, SCREEN_H, 0, SCREEN_H - (shrink + 50));
+            gradBot.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
+            gradBot.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradBot;
+            ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
+
+            let gradLeft = ctx.createLinearGradient(0, 0, shrink + 50, 0);
+            gradLeft.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
+            gradLeft.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradLeft;
+            ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
+
+            let gradRight = ctx.createLinearGradient(SCREEN_W, 0, SCREEN_W - (shrink + 50), 0);
+            gradRight.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
+            gradRight.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradRight;
+            ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
+        }
+    }
+
+    if (game.clock < 0) {
+        let cd = Math.ceil(-game.clock);
+        if (cd >= 1 && cd <= 3) {
+            ctx.textAlign = 'center'; 
+            ctx.font = 'bold 180px "Microsoft YaHei"'; 
+            ctx.fillStyle = '#ffe664'; 
+            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
+            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
+            ctx.shadowBlur = 0;
+        }
+    }
+    
+    ctx.restore();
+}
+
+function drawResult() {
+    ctx.clearRect(0, 0, SCREEN_W, SCREEN_H);
+    
+    let bgGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, 100, SCREEN_W/2, SCREEN_H/2, Math.max(SCREEN_W, SCREEN_H));
+    bgGrad.addColorStop(0, '#0a1525'); bgGrad.addColorStop(1, '#020305');
+    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+
+    let score = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
+    let totalJudged = game.perfect + game.good + game.bad + game.miss;
+    let acc = totalJudged === 0 ? 100.00 : ((game.perfect + game.good * 0.65) / totalJudged) * 100;
+    
+    let y_title = SCREEN_H * 0.12;
+    let y_score = SCREEN_H * 0.32;
+    let y_acc = SCREEN_H * 0.40;
+    let y_panel = SCREEN_H * 0.48;
+    let y_footer = SCREEN_H * 0.88;
+
+    ctx.textAlign = 'center'; 
+    ctx.fillStyle = '#a0c0ff'; 
+    ctx.font = 'bold 28px "Microsoft YaHei"'; 
+    ctx.fillText('RESULT', SCREEN_W/2, y_title);
+    
+    ctx.font = 'bold 110px sans-serif'; 
+    let scoreStr = score.toString().padStart(7, '0');
+    let scoreWidth = ctx.measureText(scoreStr).width;
+    let centerX = SCREEN_W / 2;
+    
+    if (game.perfect === game.notes.length) {
+        ctx.fillStyle = getAPGradient(centerX, y_score, scoreWidth);
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+    } else if (game.miss === 0) {
+        ctx.fillStyle = getFCGradient(centerX, y_score, scoreWidth);
+        ctx.shadowColor = 'rgba(100, 200, 255, 0.8)';
+    } else {
+        ctx.fillStyle = '#ffffff'; 
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+    }
+    ctx.shadowBlur = 30; 
+    ctx.fillText(scoreStr, centerX, y_score);
+    ctx.shadowBlur = 0;
+
+    ctx.font = 'bold 32px monospace'; 
+    ctx.fillStyle = '#50c8ff'; 
+    ctx.fillText('ACC  ' + acc.toFixed(2) + '%', SCREEN_W/2, y_acc);
+
+    ctx.fillStyle = 'rgba(10, 20, 30, 0.7)';
+    ctx.beginPath();
+    ctx.roundRect(SCREEN_W/2 - 200, y_panel, 400, 180, 15);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(80, 200, 255, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.textAlign = 'left'; ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = '#b4ffb4'; ctx.fillText(`PERFECT: ${game.perfect}`, SCREEN_W/2 - 150, y_panel + 40);
+    ctx.fillStyle = '#96c8ff'; ctx.fillText(`GOOD:    ${game.good}`, SCREEN_W/2 - 150, y_panel + 80);
+    ctx.fillStyle = '#c89696'; ctx.fillText(`BAD:     ${game.bad}`, SCREEN_W/2 - 150, y_panel + 120);
+    ctx.fillStyle = '#ff9696'; ctx.fillText(`MISS:    ${game.miss}`, SCREEN_W/2 - 150, y_panel + 160);
+
+    if (game.perfect === game.notes.length) {
+        ctx.textAlign = 'center'; 
+        ctx.font = 'bold 80px Impact'; 
+        ctx.fillStyle = '#ffff64'; 
+        ctx.shadowBlur = 30; ctx.shadowColor = '#ffff64';
+        ctx.fillText("ALL PERFECT", SCREEN_W/2, y_panel + 250);
+        ctx.shadowBlur = 0;
+    } else if (game.bad === 0 && game.miss === 0) {
+        ctx.textAlign = 'center'; 
+        ctx.font = 'bold 80px Impact'; 
+        ctx.fillStyle = '#64c8ff'; 
+        ctx.shadowBlur = 30; ctx.shadowColor = '#64c8ff';
+        ctx.fillText("FULL COMBO", SCREEN_W/2, y_panel + 250);
+        ctx.shadowBlur = 0;
+    }
+
+    ctx.textAlign = 'center'; 
+    ctx.font = 'bold 30px sans-serif'; 
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('▲', SCREEN_W/2, y_footer - 5); 
+    ctx.font = '16px "Microsoft YaHei"'; 
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('返回主界面', SCREEN_W/2, y_footer + 20);
+}
+</script>
+</body>
+</html>
