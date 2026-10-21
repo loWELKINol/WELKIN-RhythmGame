@@ -1,1644 +1,706 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>V. - Web Rhythm Game</title>
-    <style>
-        html, body { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            background-color: #05070a; overflow: hidden; 
-            display: flex; justify-content: center; align-items: center; 
-            touch-action: none; user-select: none; -webkit-user-select: none; 
-            overscroll-behavior: none;
-            position: fixed;
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; 
-        }
-        canvas { 
-            display: block; 
-            max-width: 100%; max-height: 100%; 
-            object-fit: contain; 
-            box-shadow: 0 0 30px rgba(80, 200, 255, 0.15); 
-            position: relative; z-index: 2; 
-            touch-action: none;
-        }
-        
-        #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        #transition-mask.show { opacity: 1; pointer-events: auto; }
-
-        #loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #50c8ff; font-size: 24px; z-index: 10000; font-weight: bold; text-shadow: 0 0 10px #50c8ff; animation: pulse 1.5s infinite; pointer-events: none; }
-
-        #pauseBtn { position: absolute; top: 15px; left: 15px; width: 40px; height: 40px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; color: white; font-size: 16px; cursor: pointer; display: none; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        #pauseBtn:hover { background: rgba(255,255,255,0.15); transform: scale(1.05); }
-        #pauseBtn:active { transform: scale(0.95); }
-        #pauseBtn.confirming { background: #ff4444; border-color: #ff4444; box-shadow: 0 0 15px rgba(255, 68, 68, 0.6); animation: pulse 0.5s infinite; }
-
-        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,7,10,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-        .modal.show { opacity: 1; pointer-events: auto; }
-        .modal-content-wrapper { transform: translateY(30px) scale(0.95); transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; flex-direction: column; align-items: center; }
-        .modal.show .modal-content-wrapper { transform: translateY(0) scale(1); }
-
-        .modal h2 { color: #50c8ff; text-shadow: 0 0 15px rgba(80,200,255,0.6); margin-bottom: 25px; font-size: 28px; letter-spacing: 2px; }
-        .input-group { margin-bottom: 15px; display: flex; flex-direction: column; width: 280px; }
-        .input-group label { font-size: 13px; color: #88a0c0; margin-bottom: 8px; font-weight: bold; }
-        .input-group input { padding: 12px; border-radius: 8px; border: 1px solid rgba(80,200,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none; transition: border 0.3s; }
-        .input-group input:focus { border-color: #50c8ff; box-shadow: 0 0 10px rgba(80,200,255,0.2); }
-        
-        .btn { padding: 12px 30px; background: linear-gradient(135deg, #50c8ff, #0077ff); color: #fff; font-weight: bold; border: none; border-radius: 25px; cursor: pointer; font-size: 16px; box-shadow: 0 5px 20px rgba(0, 119, 255, 0.4); transition: all 0.2s; margin: 10px; width: 220px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 119, 255, 0.6); filter: brightness(1.1); }
-        .btn:active { transform: translateY(1px); box-shadow: 0 2px 10px rgba(0, 119, 255, 0.4); }
-        .btn.danger { background: linear-gradient(135deg, #ff6464, #cc0000); box-shadow: 0 5px 20px rgba(204, 0, 0, 0.4); }
-        .btn.secondary { background: linear-gradient(135deg, #6a7b8e, #3a4a5c); box-shadow: 0 5px 20px rgba(58, 74, 92, 0.4); }
-        
-        #avatarPreview { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 2px solid #50c8ff; box-shadow: 0 0 15px rgba(80,200,255,0.3); margin-bottom: 20px; display: none; }
-        .switch-btn { font-size: 12px; padding: 6px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #ccc; border-radius: 12px; cursor: pointer; margin-left: 15px; transition: all 0.2s; z-index: 10; position: relative;}
-        .switch-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
-
-        #start-screen { 
-            display: none; position: absolute; top:0; left:0; width:100%; height:100%; 
-            z-index: 10; cursor: pointer;
-            background-color: #05070a;
-            overflow: hidden;
-        }
-
-        #coverImg {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            z-index: 0;
-            pointer-events: none;
-            user-select: none;
-            -webkit-user-drag: none;
-        }
-
-        @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        .menu-anim { animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
-
-        #imBtn {
-            position: absolute; 
-            top: 135px;
-            left: 25px; 
-            width: 56px; height: 56px; border-radius: 50%;
-            background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
-            border: 2px solid #50c8ff;
-            box-shadow: 0 0 15px rgba(80, 200, 255, 0.6), inset 0 0 10px rgba(80, 200, 255, 0.4);
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; z-index: 20;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; animation-delay: 0.15s; opacity: 0;
-        }
-        #imBtn:hover { transform: scale(1.1); box-shadow: 0 0 25px rgba(80, 200, 255, 0.9), inset 0 0 15px rgba(80, 200, 255, 0.6); }
-        #imBtn:active { transform: scale(0.95); }
-        #imBtn .im-text {
-            color: #fff; font-size: 24px; font-family: 'Arial Black', sans-serif;
-            font-style: italic; text-shadow: 0 0 10px #50c8ff; letter-spacing: -1px;
-            display: block; line-height: 1; padding-right: 2px; 
-        }
-        
-        #im-screen {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #030810; z-index: 200; color: #fff;
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            overflow: hidden; flex-direction: column;
-        }
-
-        .im-bg {
-            position: absolute; top: 0; left: 0; width: 200%; height: 200%;
-            background-image: 
-                linear-gradient(rgba(0, 200, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 200, 255, 0.05) 1px, transparent 1px);
-            background-size: 40px 40px;
-            animation: bgMove 20s linear infinite;
-            z-index: 0; pointer-events: none;
-        }
-        @keyframes bgMove { 0% { transform: translate(0, 0); } 100% { transform: translate(-40px, -40px); } }
-        .im-glow {
-            position: absolute; top: 50%; left: 50%; width: 150%; height: 150%;
-            background: radial-gradient(circle, rgba(0, 100, 255, 0.15) 0%, transparent 60%);
-            transform: translate(-50%, -50%); z-index: 0; pointer-events: none;
-            animation: glowPulse 4s infinite alternate;
-        }
-        @keyframes glowPulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
-
-        .im-topbar {
-            position: relative; z-index: 10; height: 60px; display: flex; align-items: center;
-            padding: 0 20px; background: rgba(0, 15, 30, 0.8); border-bottom: 1px solid rgba(80, 200, 255, 0.3);
-            backdrop-filter: blur(10px);
-        }
-        .im-back-btn {
-            width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.6);
-            background: transparent; color: #fff; font-size: 20px; display: flex; justify-content: center; align-items: center;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .im-back-btn:hover { background: rgba(255,255,255,0.1); }
-        .im-title { font-size: 20px; margin-left: 20px; letter-spacing: 2px; font-weight: bold; color: #50c8ff; text-shadow: 0 0 10px rgba(80,200,255,0.5); }
-
-        #im-list-view {
-            position: relative; z-index: 10; flex: 1; overflow-y: auto; padding: 20px;
-            display: flex; flex-direction: column; gap: 15px;
-        }
-        .im-post-item {
-            background: rgba(10, 25, 45, 0.6); border: 1px solid rgba(80, 200, 255, 0.15);
-            border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px;
-            cursor: pointer; transition: all 0.2s; backdrop-filter: blur(5px);
-        }
-        .im-post-item:hover { background: rgba(20, 40, 65, 0.8); border-color: rgba(80, 200, 255, 0.4); transform: translateY(-2px); }
-        .im-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #50c8ff; }
-        .im-post-content { flex: 1; font-size: 15px; color: #ddd; line-height: 1.4; }
-        .im-post-likes { display: flex; flex-direction: column; align-items: center; color: #50c8ff; font-size: 12px; }
-        .im-like-icon { font-size: 18px; margin-bottom: 2px; }
-
-        #im-detail-view {
-            position: relative; z-index: 10; flex: 1; overflow-y: auto; padding: 20px; display: none;
-        }
-        .im-detail-card {
-            background: rgba(10, 25, 45, 0.7); border: 1px solid rgba(80, 200, 255, 0.2);
-            border-radius: 16px; padding: 25px; backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .im-detail-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
-        .im-detail-avatar { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #50c8ff; box-shadow: 0 0 15px rgba(80,200,255,0.4); }
-        .im-detail-name { font-size: 22px; font-weight: bold; color: #fff; }
-        .im-detail-text { font-size: 18px; line-height: 1.6; color: #e0e0e0; margin-bottom: 20px; letter-spacing: 1px;}
-        .im-like-btn {
-            display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
-            background: rgba(80, 200, 255, 0.1); border: 1px solid #50c8ff; border-radius: 20px;
-            color: #50c8ff; font-size: 16px; cursor: pointer; transition: all 0.2s;
-        }
-        .im-like-btn:hover { background: rgba(80, 200, 255, 0.2); }
-        .im-like-btn:active { transform: scale(0.95); }
-        .im-like-btn.liked { background: #50c8ff; color: #000; font-weight: bold; }
-
-        .im-comments { margin-top: 30px; }
-        .im-comment { display: flex; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; }
-        .im-comment-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: flex; justify-content: center; align-items: center; font-size: 24px; }
-        .im-comment-content { flex: 1; }
-        .im-comment-name { font-size: 14px; color: #aaa; margin-bottom: 5px; }
-        .im-comment-text { font-size: 15px; color: #ddd; line-height: 1.5; }
-        
-        #im-list-view::-webkit-scrollbar, #im-detail-view::-webkit-scrollbar { width: 6px; }
-        #im-list-view::-webkit-scrollbar-thumb, #im-detail-view::-webkit-scrollbar-thumb { background: rgba(80,200,255,0.3); border-radius: 3px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>V. - Web Rhythm Game</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;background:#05070a;overflow:hidden;display:flex;justify-content:center;align-items:center;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none;position:fixed;font-family:'Segoe UI','Microsoft YaHei',sans-serif}
+canvas{display:block;max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 0 30px rgba(80,200,255,.15);position:relative;z-index:2;touch-action:none}
+#transition-mask{position:absolute;top:0;left:0;width:100%;height:100%;background:#000;opacity:0;pointer-events:none;z-index:9999;transition:opacity .3s cubic-bezier(.4,0,.2,1)}
+#transition-mask.show{opacity:1;pointer-events:auto}
+#loading-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#50c8ff;font-size:24px;z-index:10000;font-weight:bold;text-shadow:0 0 10px #50c8ff;animation:pulse 1.5s infinite;pointer-events:none}
+#pauseBtn{position:absolute;top:15px;left:15px;width:40px;height:40px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;font-size:16px;cursor:pointer;display:none;z-index:50;transition:all .3s;align-items:center;justify-content:center;backdrop-filter:blur(10px);box-shadow:0 4px 15px rgba(0,0,0,.3)}
+#pauseBtn:hover{background:rgba(255,255,255,.15);transform:scale(1.05)}
+#pauseBtn:active{transform:scale(.95)}
+#pauseBtn.confirming{background:#ff4444;border-color:#ff4444;box-shadow:0 0 15px rgba(255,68,68,.6);animation:pulse .5s infinite}
+.modal{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(5,7,10,.8);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;color:#fff;backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .3s}
+.modal.show{opacity:1;pointer-events:auto}
+.modal-content-wrapper{transform:translateY(30px) scale(.95);transition:all .4s cubic-bezier(.34,1.56,.64,1);display:flex;flex-direction:column;align-items:center}
+.modal.show .modal-content-wrapper{transform:translateY(0) scale(1)}
+.modal h2{color:#50c8ff;text-shadow:0 0 15px rgba(80,200,255,.6);margin-bottom:25px;font-size:28px;letter-spacing:2px}
+.input-group{margin-bottom:15px;display:flex;flex-direction:column;width:280px}
+.input-group label{font-size:13px;color:#88a0c0;margin-bottom:8px;font-weight:bold}
+.input-group input{padding:12px;border-radius:8px;border:1px solid rgba(80,200,255,.3);background:rgba(255,255,255,.05);color:#fff;outline:none;transition:border .3s}
+.input-group input:focus{border-color:#50c8ff;box-shadow:0 0 10px rgba(80,200,255,.2)}
+.btn{padding:12px 30px;background:linear-gradient(135deg,#50c8ff,#0077ff);color:#fff;font-weight:bold;border:none;border-radius:25px;cursor:pointer;font-size:16px;box-shadow:0 5px 20px rgba(0,119,255,.4);transition:all .2s;margin:10px;width:220px;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,119,255,.6);filter:brightness(1.1)}
+.btn:active{transform:translateY(1px)}
+.btn.danger{background:linear-gradient(135deg,#ff6464,#cc0000);box-shadow:0 5px 20px rgba(204,0,0,.4)}
+.btn.secondary{background:linear-gradient(135deg,#6a7b8e,#3a4a5c)}
+#avatarPreview{width:90px;height:90px;border-radius:50%;object-fit:cover;border:2px solid #50c8ff;box-shadow:0 0 15px rgba(80,200,255,.3);margin-bottom:20px;display:none}
+.switch-btn{font-size:12px;padding:6px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#ccc;border-radius:12px;cursor:pointer;margin-left:15px;transition:all .2s;z-index:10;position:relative}
+.switch-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+#start-screen{display:none;position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;cursor:pointer;background:#05070a;overflow:hidden}
+#coverImg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;user-select:none;-webkit-user-drag:none}
+@keyframes slideUpFade{0%{opacity:0;transform:translateY(20px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+.menu-anim{animation:slideUpFade .6s cubic-bezier(.2,.8,.2,1) forwards;opacity:0}
+#imBtn{position:absolute;top:135px;left:25px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,rgba(0,200,255,.2),rgba(0,80,255,.4));border:2px solid #50c8ff;box-shadow:0 0 15px rgba(80,200,255,.6),inset 0 0 10px rgba(80,200,255,.4);display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:20;transition:all .3s;animation:slideUpFade .6s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:.15s;opacity:0}
+#imBtn:hover{transform:scale(1.1);box-shadow:0 0 25px rgba(80,200,255,.9),inset 0 0 15px rgba(80,200,255,.6)}
+#imBtn:active{transform:scale(.95)}
+#imBtn .im-text{color:#fff;font-size:24px;font-family:'Arial Black',sans-serif;font-style:italic;text-shadow:0 0 10px #50c8ff;letter-spacing:-1px;display:block;line-height:1;padding-right:2px}
+#im-screen{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#030810;z-index:200;color:#fff;font-family:'Segoe UI','Microsoft YaHei',sans-serif;overflow:hidden;flex-direction:column}
+.im-bg{position:absolute;top:0;left:0;width:200%;height:200%;background-image:linear-gradient(rgba(0,200,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,.05) 1px,transparent 1px);background-size:40px 40px;animation:bgMove 20s linear infinite;z-index:0;pointer-events:none}
+@keyframes bgMove{0%{transform:translate(0,0)}100%{transform:translate(-40px,-40px)}}
+.im-glow{position:absolute;top:50%;left:50%;width:150%;height:150%;background:radial-gradient(circle,rgba(0,100,255,.15) 0%,transparent 60%);transform:translate(-50%,-50%);z-index:0;pointer-events:none;animation:glowPulse 4s infinite alternate}
+@keyframes glowPulse{0%{opacity:.5}100%{opacity:1}}
+.im-topbar{position:relative;z-index:10;height:60px;display:flex;align-items:center;padding:0 20px;background:rgba(0,15,30,.8);border-bottom:1px solid rgba(80,200,255,.3);backdrop-filter:blur(10px)}
+.im-back-btn{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:transparent;color:#fff;font-size:20px;display:flex;justify-content:center;align-items:center;cursor:pointer;transition:all .2s}
+.im-back-btn:hover{background:rgba(255,255,255,.1)}
+.im-title{font-size:20px;margin-left:20px;letter-spacing:2px;font-weight:bold;color:#50c8ff;text-shadow:0 0 10px rgba(80,200,255,.5)}
+#im-list-view{position:relative;z-index:10;flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:15px}
+.im-post-item{background:rgba(10,25,45,.6);border:1px solid rgba(80,200,255,.15);border-radius:12px;padding:15px;display:flex;align-items:center;gap:15px;cursor:pointer;transition:all .2s;backdrop-filter:blur(5px)}
+.im-post-item:hover{background:rgba(20,40,65,.8);border-color:rgba(80,200,255,.4);transform:translateY(-2px)}
+.im-avatar{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid #50c8ff}
+.im-post-content{flex:1;font-size:15px;color:#ddd;line-height:1.4}
+.im-post-likes{display:flex;flex-direction:column;align-items:center;color:#50c8ff;font-size:12px}
+.im-like-icon{font-size:18px;margin-bottom:2px}
+#im-detail-view{position:relative;z-index:10;flex:1;overflow-y:auto;padding:20px;display:none}
+.im-detail-card{background:rgba(10,25,45,.7);border:1px solid rgba(80,200,255,.2);border-radius:16px;padding:25px;backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.im-detail-header{display:flex;align-items:center;gap:15px;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:15px}
+.im-detail-avatar{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #50c8ff;box-shadow:0 0 15px rgba(80,200,255,.4)}
+.im-detail-name{font-size:22px;font-weight:bold;color:#fff}
+.im-detail-text{font-size:18px;line-height:1.6;color:#e0e0e0;margin-bottom:20px;letter-spacing:1px}
+.im-like-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:rgba(80,200,255,.1);border:1px solid #50c8ff;border-radius:20px;color:#50c8ff;font-size:16px;cursor:pointer;transition:all .2s}
+.im-like-btn:hover{background:rgba(80,200,255,.2)}
+.im-like-btn:active{transform:scale(.95)}
+.im-like-btn.liked{background:#50c8ff;color:#000;font-weight:bold}
+.im-comments{margin-top:30px}
+.im-comment{display:flex;gap:15px;margin-bottom:15px;background:rgba(0,0,0,.3);padding:15px;border-radius:12px}
+.im-comment-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;display:flex;justify-content:center;align-items:center;font-size:24px}
+.im-comment-content{flex:1}
+.im-comment-name{font-size:14px;color:#aaa;margin-bottom:5px}
+.im-comment-text{font-size:15px;color:#ddd;line-height:1.5}
+#im-list-view::-webkit-scrollbar,#im-detail-view::-webkit-scrollbar{width:6px}
+#im-list-view::-webkit-scrollbar-thumb,#im-detail-view::-webkit-scrollbar-thumb{background:rgba(80,200,255,.3);border-radius:3px}
+</style>
 </head>
 <body>
 
-    <div id="loading-text">Loading...</div>
-    <div id="transition-mask"></div>
+<div id="loading-text">Loading...</div>
+<div id="transition-mask"></div>
+<div id="pauseBtn">⏸</div>
 
-    <div id="pauseBtn">⏸</div>
+<div id="im-screen">
+<div class="im-bg"></div>
+<div class="im-glow"></div>
+<div class="im-topbar">
+<button class="im-back-btn" id="imBackBtn" onclick="handleImBack()">←</button>
+<div class="im-title" id="imTitle">iM SYSTEM</div>
+</div>
+<div id="im-list-view">
+<div class="im-post-item" onclick="openImDetail('welkin')">
+<img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><circle cx=\'25\' cy=\'25\' r=\'25\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'2\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'20\' font-family=\'sans-serif\'>W</text></svg>'" class="im-avatar" alt="Me">
+<div class="im-post-content">大家好！欢迎来到我制作的小音游，以后会加油更新...</div>
+<div class="im-post-likes"><span class="im-like-icon">👍</span><span id="listLikeCount">0</span></div>
+</div>
+<div class="im-post-item" onclick="openImDetail('nick')">
+<img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'18\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-avatar" alt="Nick" style="border-color:#a2d2ff">
+<div class="im-post-content">祝Welkin天天开心，永远不死</div>
+<div class="im-post-likes"><span class="im-like-icon">👍</span>12</div>
+</div>
+<div class="im-post-item" onclick="openImDetail('jirong')">
+<img src="bb.im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'%2388ff9f\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'20\' font-family=\'sans-serif\'>季</text></svg>'" class="im-avatar" alt="季绒" style="border-color:#88ff9f">
+<div class="im-post-content">jjnb</div>
+<div class="im-post-likes"><span class="im-like-icon">👍</span>8</div>
+</div>
+</div>
+<div id="im-detail-view">
+<div class="im-detail-card" id="post-welkin">
+<div class="im-detail-header">
+<img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><circle cx=\'35\' cy=\'35\' r=\'35\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'3\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'28\' font-family=\'sans-serif\'>W</text></svg>'" class="im-detail-avatar">
+<div><div class="im-detail-name">WELKIN (Creator)</div><div style="font-size:12px;color:#888">刚刚发布 · 所有人可见</div></div>
+</div>
+<div class="im-detail-text">大家好！欢迎来到我制作的小音游，以后会加油更新，希望大家多多支持！该网址可以电脑打开游玩，按键控制是cvbn键，对应四个轨道！谢谢大家！</div>
+<button class="im-like-btn" id="likeBtn" onclick="doImLike(event)"><span>👍</span> <span id="detailLikeCount">0</span> 点赞</button>
+<div class="im-comments">
+<div class="im-comment"><div class="im-comment-avatar" style="background:#ffb6c1;border:2px solid #ff69b4;box-shadow:0 0 10px rgba(255,105,180,.5)">🐱</div><div class="im-comment-content"><div class="im-comment-name">NEKO</div><div class="im-comment-text">好耶！</div></div></div>
+<div class="im-comment"><div class="im-comment-avatar" style="background:#ffcccc;border:2px solid #ff0000;box-shadow:0 0 10px rgba(255,0,0,.5)">😡</div><div class="im-comment-content"><div class="im-comment-name">区</div><div class="im-comment-text">啥时候出新歌！</div></div></div>
+</div>
+</div>
+<div class="im-detail-card" id="post-nick" style="display:none">
+<div class="im-detail-header">
+<img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><rect width=\'70\' height=\'70\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'24\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-detail-avatar" style="border-color:#a2d2ff">
+<div><div class="im-detail-name">Nick</div><div style="font-size:12px;color:#888">1小时前 · 所有人可见</div></div>
+</div>
+<div class="im-detail-text">祝Welkin天天开心，永远不死</div>
+<button class="im-like-btn" onclick="alert('已点赞！')"><span>👍</span> 12 点赞</button>
+<div class="im-comments">
+<div class="im-comment"><div class="im-comment-avatar" style="background:#ffb6c1;border:2px solid #ff69b4;box-shadow:0 0 10px rgba(255,105,180,.5)">🐱</div><div class="im-comment-content"><div class="im-comment-name">NEKO</div><div class="im-comment-text">带我一个！(⁎⁍̴̛ᴗ⁍̴̛⁎)</div></div></div>
+</div>
+</div>
+<div class="im-detail-card" id="post-jirong" style="display:none">
+<div class="im-detail-header">
+<img src="bb.im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><rect width=\'70\' height=\'70\' fill=\'%2388ff9f\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'28\' font-family=\'sans-serif\'>季</text></svg>'" class="im-detail-avatar" style="border-color:#88ff9f">
+<div><div class="im-detail-name">季绒</div><div style="font-size:12px;color:#888">3小时前 · 所有人可见</div></div>
+</div>
+<div class="im-detail-text">jjnb</div>
+<button class="im-like-btn" onclick="alert('已点赞！')"><span>👍</span> 8 点赞</button>
+<div class="im-comments">
+<div class="im-comment"><div class="im-comment-avatar" style="background:#ffb6c1;border:2px solid #ff69b4;box-shadow:0 0 10px rgba(255,105,180,.5)">🐱</div><div class="im-comment-content"><div class="im-comment-name">NEKO</div><div class="im-comment-text">哇库^o^</div></div></div>
+</div>
+</div>
+</div>
+</div>
 
-    <div id="im-screen">
-        <div class="im-bg"></div>
-        <div class="im-glow"></div>
-        
-        <div class="im-topbar">
-            <button class="im-back-btn" id="imBackBtn" onclick="handleImBack()">←</button>
-            <div class="im-title" id="imTitle">iM SYSTEM</div>
-        </div>
+<div id="loginModal" class="modal" onclick="event.stopPropagation()">
+<div class="modal-content-wrapper">
+<h2>PLAYER SYSTEM</h2>
+<img id="avatarPreview" src="" alt="Avatar">
+<div class="input-group"><label>游戏昵称 / NICKNAME</label><input type="text" id="nameInput" placeholder="输入你的帅气名字" maxlength="10"></div>
+<div class="input-group"><label>上传头像 / AVATAR</label><input type="file" id="avatarInput" accept="image/*" style="border:none;padding:5px 0"></div>
+<button class="btn" onclick="doLogin()">START GAME</button>
+</div>
+</div>
 
-        <div id="im-list-view">
-            <div class="im-post-item" onclick="openImDetail('welkin')">
-                <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><circle cx=\'25\' cy=\'25\' r=\'25\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'2\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'20\' font-family=\'sans-serif\'>W</text></svg>'" class="im-avatar" alt="Me">
-                <div class="im-post-content">大家好！欢迎来到我制作的小音游，以后会加油更新...</div>
-                <div class="im-post-likes"><span class="im-like-icon">👍</span><span id="listLikeCount">0</span></div>
-            </div>
+<div id="pauseModal" class="modal" onclick="event.stopPropagation()">
+<div class="modal-content-wrapper">
+<h2>PAUSED</h2>
+<button class="btn" onclick="resumeGame()">继续游戏 / RESUME</button>
+<button class="btn secondary" onclick="restartGame()">重新开始 / RESTART</button>
+<button class="btn danger" onclick="quitGame()">退出 / QUIT</button>
+</div>
+</div>
 
-            <div class="im-post-item" onclick="openImDetail('nick')">
-                <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'18\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-avatar" alt="Nick" style="border-color: #a2d2ff;">
-                <div class="im-post-content">祝Welkin......</div>
-                <div class="im-post-likes"><span class="im-like-icon">👍</span>12</div>
-            </div>
-        </div>
+<div id="start-screen">
+<img id="coverImg" src="cover.jpg" alt="">
+<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(to bottom,rgba(0,0,0,.2),rgba(0,0,0,.8));z-index:1"></div>
+<div class="menu-anim" style="animation-delay:.1s;position:absolute;top:20px;left:20px;display:flex;align-items:center;background:rgba(10,15,25,.6);padding:15px 20px 15px 15px;border-radius:12px;z-index:20;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);box-shadow:0 5px 15px rgba(0,0,0,.4)">
+<img id="userAvatarDisplay" style="width:48px;height:48px;border-radius:50%;border:2px solid #50c8ff;margin-right:12px;background:#333">
+<span id="userNameDisplay" style="font-size:18px;color:#fff;font-weight:bold;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,.5)"></span>
+<button class="switch-btn" onclick="switchUser(event)">换号</button>
+</div>
+<div id="imBtn" onclick="openIM(event)"><span class="im-text">iM</span></div>
+<div id="highScoreDisplay" class="menu-anim" style="animation-delay:.2s;position:absolute;bottom:30px;left:30px;background:rgba(10,15,25,.6);padding:15px 25px;border-radius:12px;border-left:4px solid #ffe664;z-index:20;backdrop-filter:blur(10px);box-shadow:0 5px 15px rgba(0,0,0,.4)">
+<div style="font-size:12px;color:#a0b0c0;letter-spacing:2px;margin-bottom:5px;font-weight:bold">HISTORY BEST</div>
+<div id="highScoreValue" style="font-size:38px;color:#ffe664;font-weight:bold;font-family:'Consolas',monospace;text-shadow:0 0 15px rgba(255,230,100,.4)">0000000</div>
+</div>
+<h1 class="menu-anim" style="animation-delay:.3s;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:38px;text-shadow:0 0 20px #00bfff,0 0 40px #00bfff;animation:pulse 2.5s infinite,slideUpFade .6s cubic-bezier(.2,.8,.2,1) forwards;z-index:1;pointer-events:none;text-align:center;font-weight:900;letter-spacing:2px">
+点击屏幕任意位置开始<br><span style="font-size:20px;color:#a0c0ff;letter-spacing:1px;margin-top:10px;display:block">CLICK ANYWHERE TO START</span>
+</h1>
+</div>
 
-        <div id="im-detail-view">
-            <div class="im-detail-card" id="post-welkin">
-                <div class="im-detail-header">
-                    <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><circle cx=\'35\' cy=\'35\' r=\'35\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'3\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'28\' font-family=\'sans-serif\'>W</text></svg>'" class="im-detail-avatar">
-                    <div>
-                        <div class="im-detail-name">WELKIN (Creator)</div>
-                        <div style="font-size: 12px; color: #888;">刚刚发布 · 所有人可见</div>
-                    </div>
-                </div>
-                <div class="im-detail-text">
-                    大家好！欢迎来到我制作的小音游，以后会加油更新，希望大家多多支持！该网址可以电脑打开游玩，按键控制是cvbn键，对应四个轨道！谢谢大家！
-                </div>
-                <button class="im-like-btn" id="likeBtn" onclick="doImLike(event)">
-                    <span>👍</span> <span id="detailLikeCount">0</span> 点赞
-                </button>
-                
-                <div class="im-comments">
-                    <div class="im-comment">
-                        <div class="im-comment-avatar" style="background: #ffb6c1; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
-                        <div class="im-comment-content">
-                            <div class="im-comment-name">NEKO</div>
-                            <div class="im-comment-text">好耶！</div>
-                        </div>
-                    </div>
-                    
-                    <div class="im-comment">
-                        <div class="im-comment-avatar" style="background: #ffcccc; border: 2px solid #ff0000; box-shadow: 0 0 10px rgba(255,0,0,0.5);">😡</div>
-                        <div class="im-comment-content">
-                            <div class="im-comment-name">区</div>
-                            <div class="im-comment-text">啥时候出新歌！</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="im-detail-card" id="post-nick" style="display: none;">
-                <div class="im-detail-header">
-                    <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><rect width=\'70\' height=\'70\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'24\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-detail-avatar" style="border-color: #a2d2ff;">
-                    <div>
-                        <div class="im-detail-name">Nick</div>
-                        <div style="font-size: 12px; color: #888;">1小时前 · 所有人可见</div>
-                    </div>
-                </div>
-                <div class="im-detail-text">
-                    祝Welkin天天开心，永远不死
-                </div>
-                <button class="im-like-btn" onclick="alert('已点赞！')">
-                    <span>👍</span> 12 点赞
-                </button>
-                
-                <div class="im-comments">
-                    <div class="im-comment">
-                        <div class="im-comment-avatar" style="background: #ffb6c1; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
-                        <div class="im-comment-content">
-                            <div class="im-comment-name">NEKO</div>
-                            <div class="im-comment-text">带我一个！(⁎⁍̴̛ᴗ⁍̴̛⁎)</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="loginModal" class="modal" onclick="event.stopPropagation()">
-        <div class="modal-content-wrapper">
-            <h2>PLAYER SYSTEM</h2>
-            <img id="avatarPreview" src="" alt="Avatar">
-            <div class="input-group">
-                <label>游戏昵称 / NICKNAME</label>
-                <input type="text" id="nameInput" placeholder="输入你的帅气名字" maxlength="10">
-            </div>
-            <div class="input-group">
-                <label>上传头像 / AVATAR</label>
-                <input type="file" id="avatarInput" accept="image/*" style="border:none; padding:5px 0;">
-            </div>
-            <button class="btn" onclick="doLogin()">START GAME</button>
-        </div>
-    </div>
-
-    <div id="pauseModal" class="modal" onclick="event.stopPropagation()">
-        <div class="modal-content-wrapper">
-            <h2>PAUSED</h2>
-            <button class="btn" onclick="resumeGame()">继续游戏 / RESUME</button>
-            <button class="btn secondary" onclick="restartGame()">重新开始 / RESTART</button>
-            <button class="btn danger" onclick="quitGame()">退出 / QUIT</button>
-        </div>
-    </div>
-
-    <div id="start-screen">
-        <img id="coverImg" src="cover.jpg" alt="">
-        <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)); z-index:1;"></div>
-
-        <div class="menu-anim" style="animation-delay: 0.1s; position: absolute; top: 20px; left: 20px; display: flex; align-items: center; background: rgba(10, 15, 25, 0.6); padding: 15px 20px 15px 15px; border-radius: 12px; z-index: 20; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
-            <img id="userAvatarDisplay" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #50c8ff; margin-right: 12px; background:#333;">
-            <span id="userNameDisplay" style="font-size: 18px; color: white; font-weight: bold; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></span>
-            <button class="switch-btn" onclick="switchUser(event)">换号</button>
-        </div>
-
-        <div id="imBtn" onclick="openIM(event)">
-            <span class="im-text">iM</span>
-        </div>
-
-        <div id="highScoreDisplay" class="menu-anim" style="animation-delay: 0.2s; position: absolute; bottom: 30px; left: 30px; background: rgba(10, 15, 25, 0.6); padding: 15px 25px; border-radius: 12px; border-left: 4px solid #ffe664; z-index: 20; backdrop-filter: blur(10px); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
-            <div style="font-size: 12px; color: #a0b0c0; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold;">HISTORY BEST</div>
-            <div id="highScoreValue" style="font-size: 38px; color: #ffe664; font-weight: bold; font-family: 'Consolas', monospace; text-shadow: 0 0 15px rgba(255,230,100,0.4);">0000000</div>
-        </div>
-
-        <h1 class="menu-anim" style="animation-delay: 0.3s; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 38px; text-shadow: 0 0 20px #00bfff, 0 0 40px #00bfff; animation: pulse 2.5s infinite, slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; z-index: 1; pointer-events: none; text-align: center; font-weight: 900; letter-spacing: 2px;">
-            点击屏幕任意位置开始<br><span style="font-size:20px;color:#a0c0ff;letter-spacing:1px;margin-top:10px;display:block;">CLICK ANYWHERE TO START</span>
-        </h1>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-    <audio id="bgm" src="V.mp3" preload="auto"></audio>
+<canvas id="gameCanvas"></canvas>
+<audio id="bgm" src="V.mp3" preload="auto"></audio>
 
 <script>
-// ===== 封面加载监控 =====
-(function watchCover() {
-    const el = document.getElementById('coverImg');
-    if (!el) return;
-    el.addEventListener('load', () => { console.log('[Cover] 加载成功:', el.naturalWidth + '×' + el.naturalHeight); });
-    el.addEventListener('error', () => { console.error('[Cover] 加载失败'); el.style.display = 'none'; });
-})();
+(function(){const el=document.getElementById('coverImg');if(!el)return;el.addEventListener('load',()=>console.log('[Cover] 加载成功'));el.addEventListener('error',()=>{console.error('[Cover] 加载失败');el.style.display='none'})})();
+function safeRoundRect(c,x,y,w,h,r){if(isNaN(x)||isNaN(y)||isNaN(w)||isNaN(h)||isNaN(r))return;if(w<2*r)r=w/2;if(h<2*r)r=h/2;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+let isGameLoopRunning=false,isPlaying=false,clockAnchor=0;
+let audioStarted=false,audioUnlocked=false,isAudioBroken=false;
+let playPending=false,playPendingSince=0,playToken=0,audioSyncPending=false,audioFailCount=0;
+let lastBgTime=0,lastBgTimeChangeAt=0,bgTimeInitialized=false,lastHealthCheck=0,lastSeekTime=0;
+let pointerLanes={},lastTouchTime=0,resumeCountdown=0,pausedClock=0,pausedAudioPos=0;
+let currentUser=null,tempAvatarBase64='';
+const baseLikes=0;
+function updateImLikesUI(){let a=parseInt(localStorage.getItem('rhythm_im_likes')||'0');let t=baseLikes+a;document.getElementById('listLikeCount').innerText=t;document.getElementById('detailLikeCount').innerText=t}
+function openIM(e){if(e){e.stopPropagation();e.preventDefault()}document.getElementById('start-screen').style.display='none';document.getElementById('im-screen').style.display='flex';document.getElementById('im-list-view').style.display='flex';document.getElementById('im-detail-view').style.display='none';document.getElementById('imTitle').innerText='iM SYSTEM';updateImLikesUI()}
+function handleImBack(){const lv=document.getElementById('im-list-view');const dv=document.getElementById('im-detail-view');if(dv.style.display==='block'){dv.style.display='none';lv.style.display='flex';document.getElementById('imTitle').innerText='iM SYSTEM'}else{document.getElementById('im-screen').style.display='none';document.getElementById('start-screen').style.display='block';const b=document.getElementById('imBtn');b.style.animation='none';b.offsetHeight;b.style.animation=null}}
+function openImDetail(user){document.getElementById('im-list-view').style.display='none';document.getElementById('im-detail-view').style.display='block';document.getElementById('imTitle').innerText='iM POST';const w=document.getElementById('post-welkin');const n=document.getElementById('post-nick');const j=document.getElementById('post-jirong');w.style.display='none';n.style.display='none';j.style.display='none';if(user==='nick')n.style.display='block';else if(user==='jirong')j.style.display='block';else w.style.display='block'}
+function doImLike(e){if(e)e.stopPropagation();let a=parseInt(localStorage.getItem('rhythm_im_likes')||'0');a++;localStorage.setItem('rhythm_im_likes',a);const b=document.getElementById('likeBtn');b.classList.add('liked');setTimeout(()=>b.classList.remove('liked'),200);updateImLikesUI()}
+function updateHighScoreUI(){if(!currentUser)return;const b=localStorage.getItem('rhythm_best_'+currentUser.name)||'0';document.getElementById('highScoreValue').innerText=parseInt(b).toString().padStart(7,'0')}
+function checkLogin(){document.getElementById('loading-text').style.display='none';document.getElementById('transition-mask').classList.remove('show');const s=localStorage.getItem('rhythm_user');if(s){currentUser=JSON.parse(s);document.getElementById('userAvatarDisplay').src=currentUser.avatar;document.getElementById('userNameDisplay').innerText=currentUser.name;updateHighScoreUI();showStartScreen()}else{document.getElementById('loginModal').classList.add('show')}}
+function showStartScreen(){document.querySelectorAll('.menu-anim').forEach(el=>{el.style.animation='none';el.offsetHeight;el.style.animation=null});const ib=document.getElementById('imBtn');if(ib){ib.style.animation='none';ib.offsetHeight;ib.style.animation=null}document.getElementById('start-screen').style.display='block';state='MENU'}
+function switchUser(e){e.stopPropagation();localStorage.removeItem('rhythm_user');currentUser=null;tempAvatarBase64='';document.getElementById('avatarPreview').style.display='none';document.getElementById('nameInput').value='';document.getElementById('avatarInput').value='';document.getElementById('start-screen').style.display='none';document.getElementById('loginModal').classList.add('show')}
+document.getElementById('avatarInput').addEventListener('change',function(e){const f=e.target.files[0];if(f){const r=new FileReader();r.onload=function(evt){tempAvatarBase64=evt.target.result;const p=document.getElementById('avatarPreview');p.src=tempAvatarBase64;p.style.display='block'};r.readAsDataURL(f)}});
+function doLogin(){const n=document.getElementById('nameInput').value;if(!n){alert("请输入你的游戏昵称！");return}if(!tempAvatarBase64){alert("请上传一张头像！");return}currentUser={name:n,avatar:tempAvatarBase64};localStorage.setItem('rhythm_user',JSON.stringify(currentUser));document.getElementById('loginModal').classList.remove('show');document.getElementById('userAvatarDisplay').src=currentUser.avatar;document.getElementById('userNameDisplay').innerText=currentUser.name;updateHighScoreUI();setTimeout(()=>{showStartScreen()},300)}
+window.addEventListener('DOMContentLoaded',checkLogin);
+window.addEventListener('load',checkLogin);
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const bgm=document.getElementById('bgm');
+const pauseBtn=document.getElementById('pauseBtn');
+const pauseModal=document.getElementById('pauseModal');
+const transitionMask=document.getElementById('transition-mask');
+const startScreen=document.getElementById('start-screen');
+const SCREEN_W=800,SCREEN_H=600,LANE_COUNT=4,TRACK_X=80,LANE_W=160,TRACK_W=LANE_COUNT*LANE_W,JUDGE_Y=500,NOTE_H=24,SCROLL_SPEED=750.0;
+const PERFECT_WINDOW=0.080,GOOD_WINDOW=0.140,BAD_WINDOW=0.200,CHART_OFFSET=-0.2;
+const MUSIC_DELAY=1.35,AUDIO_LEAD=0.2,SONG_DURATION=242.0,FINAL_CHORD_TIME=239.0+CHART_OFFSET;
+let state='MENU';
+let game={clock:-3.0,perfect:0,good:0,bad:0,miss:0,combo:0,maxCombo:0,weightSum:0,feedback:'',feedbackType:'',feedbackTimer:0,comboScale:1.0,screenShake:0,judgeLineGlow:0,bpmPulse:0,flashAlpha:0,notes:[],effects:[],keyHold:[false,false,false,false]};
+let lastTime=0,resultButtonY=560,reqAnimId=null;
+let pauseClickTimer=null,isConfirmingPause=false;
+function lerp(s,e,a){return(1-a)*s+a*e}
+function easeOutQuad(t){return t*(2-t)}
+let displayScore=0,displayAcc=100.00,feedbackYOffset=0;
+function resize(){const s=Math.min(window.innerWidth/SCREEN_W,window.innerHeight/SCREEN_H);canvas.width=SCREEN_W;canvas.height=SCREEN_H;canvas.style.width=SCREEN_W*s+'px';canvas.style.height=SCREEN_H*s+'px'}
+window.addEventListener('resize',resize);resize();
+function getAPGradient(x,y,w){let g=ctx.createLinearGradient(x-(w||100)/2,y,x+(w||100)/2,y);g.addColorStop(0,'#ff4d4d');g.addColorStop(.2,'#ffcc00');g.addColorStop(.4,'#66ff66');g.addColorStop(.6,'#33ccff');g.addColorStop(.8,'#cc66ff');g.addColorStop(1,'#ff4d4d');return g}
+function getFCGradient(x,y,w){let g=ctx.createLinearGradient(x-(w||100)/2,y,x+(w||100)/2,y);g.addColorStop(0,'#b464ff');g.addColorStop(1,'#64c8ff');return g}
 
-function safeRoundRect(c, x, y, w, h, r) {
-    if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || isNaN(r)) return;
-    if (w < 2 * r) r = w / 2;
-    if (h < 2 * r) r = h / 2;
-    c.beginPath();
-    c.moveTo(x + r, y);
-    c.arcTo(x + w, y, x + w, y + h, r);
-    c.arcTo(x + w, y + h, x, y + h, r);
-    c.arcTo(x, y + h, x, y, r);
-    c.arcTo(x, y, x + w, y, r);
-    c.closePath();
+function unlockAudio(){
+if(audioUnlocked)return;audioUnlocked=true;
+try{bgm.load()}catch(e){}
+bgm.muted=true;
+const p=bgm.play();
+if(p&&p.then){p.then(()=>{if(state==='MENU'){bgm.pause();try{bgm.currentTime=0}catch(e){}}bgm.muted=false}).catch(()=>{bgm.muted=false})}
+else bgm.muted=false;
+}
+function startAudio(){
+if(isAudioBroken)return false;
+if(playPending)return false;
+if(!bgm.paused){audioSyncPending=true;return true}
+bgm.muted=false;
+const myToken=++playToken;playPending=true;playPendingSince=performance.now();
+let p;
+try{p=bgm.play()}catch(e){playPending=false;console.warn('[Audio] play threw:',e);return false}
+if(p&&p.then){
+p.then(()=>{if(myToken!==playToken)return;playPending=false;audioSyncPending=true;audioFailCount=0})
+.catch(err=>{if(myToken!==playToken)return;playPending=false;const name=err&&err.name;if(name!=='NotAllowedError'&&name!=='AbortError'){console.warn('[Audio] play failed:',err);audioFailCount++;if(audioFailCount>=5){isAudioBroken=true}}})
+}else{playPending=false;audioSyncPending=true}
+return true;
+}
+function resetAudioState(){
+playToken++;playPending=false;playPendingSince=0;audioStarted=false;audioSyncPending=false;isAudioBroken=false;audioFailCount=0;
+lastBgTime=0;lastBgTimeChangeAt=0;bgTimeInitialized=false;lastHealthCheck=0;lastSeekTime=0;
+bgm.muted=false;
+try{bgm.pause();bgm.currentTime=0}catch(e){}
+}
+// ★★★ 音乐严格在 clock >= MUSIC_DELAY(1.35s) 时启动，去掉 AUDIO_LEAD 提前量
+function updateMusic(){
+if(isAudioBroken)return;
+if(playPending&&performance.now()-playPendingSince>2500){console.warn('[Audio] playPending watchdog');playPending=false;playToken++}
+if(!audioStarted&&game.clock>=MUSIC_DELAY){
+let target=Math.max(0,game.clock-MUSIC_DELAY);
+try{bgm.currentTime=target}catch(e){}
+if(startAudio())audioStarted=true;
+}
+if(audioStarted&&audioSyncPending&&!bgm.paused&&!playPending){
+audioSyncPending=false;
+let musicTime=bgm.currentTime+MUSIC_DELAY;
+let drift=musicTime-game.clock;
+if(Math.abs(drift)>0.03&&Math.abs(drift)<0.2){clockAnchor=performance.now()-musicTime*1000;game.clock=musicTime}
+}
+}
+function updateMusicHealth(){
+if(!isPlaying||isAudioBroken)return;
+if(game.clock<MUSIC_DELAY)return;
+const now=performance.now();
+if(now-lastHealthCheck<300)return;
+lastHealthCheck=now;
+const expected=Math.max(0,game.clock-MUSIC_DELAY);
+const cur=bgm.currentTime;
+const drift=cur-expected;
+const changed=Math.abs(cur-lastBgTime)>0.005;
+if(!bgTimeInitialized){lastBgTime=cur;lastBgTimeChangeAt=now;bgTimeInitialized=true;return}
+if(changed){lastBgTime=cur;lastBgTimeChangeAt=now}
+if(audioStarted&&!bgm.paused&&!changed&&(now-lastBgTimeChangeAt>1200)){
+console.warn('[Health] Fake playback, restart at',expected.toFixed(2));
+try{bgm.pause()}catch(e){}
+try{bgm.currentTime=expected}catch(e){}
+audioStarted=false;
+if(startAudio())audioStarted=true;
+lastBgTimeChangeAt=now;lastSeekTime=now;bgTimeInitialized=false;return;
+}
+if(audioStarted&&bgm.paused&&!playPending){
+console.warn('[Health] Unexpected pause, resume at',expected.toFixed(2));
+try{bgm.currentTime=expected}catch(e){}
+if(startAudio())audioStarted=true;
+lastSeekTime=now;bgTimeInitialized=false;return;
+}
+if(audioStarted&&!bgm.paused&&Math.abs(drift)>0.2&&now-lastSeekTime>1500){
+console.warn('[Health] Large drift',drift.toFixed(2),'correct');
+try{bgm.currentTime=expected}catch(e){}
+lastSeekTime=now;bgTimeInitialized=false;
+}
 }
 
-let isGameLoopRunning = false; 
-let isPlaying = false;
-let clockAnchor = 0;
-
-// ========== 音频状态管理 ==========
-let audioStarted = false;
-let audioUnlocked = false;
-let isAudioBroken = false;
-let playPending = false;
-let playPendingSince = 0;
-let playToken = 0;
-let audioSyncPending = false;
-let audioFailCount = 0;
-
-// 音乐健康检测
-let lastBgTime = 0;
-let lastBgTimeChangeAt = 0;
-let bgTimeInitialized = false;
-let lastHealthCheck = 0;
-let lastSeekTime = 0;
-
-let pointerLanes = {}; 
-let lastTouchTime = 0;  // 用于阻止手机端的模拟 mousedown
-
-let resumeCountdown = 0;
-let pausedClock = 0;
-let pausedAudioPos = 0;
-
-let currentUser = null;
-let tempAvatarBase64 = '';
-
-// ================= iM 系统 =================
-const baseLikes = 0;
-
-function updateImLikesUI() {
-    let addedLikes = parseInt(localStorage.getItem('rhythm_im_likes') || '0');
-    let total = baseLikes + addedLikes;
-    document.getElementById('listLikeCount').innerText = total;
-    document.getElementById('detailLikeCount').innerText = total;
+function AddNote(time,lane,startLane){game.notes.push({time:time+CHART_OFFSET,lane:lane,startLane:startLane,judged:false,is_chord:false,is_multi:false})}
+function generateBeatmap(){
+game.notes=[];let t,i,j;
+for(t=2.0;t<7.0;t+=0.8){AddNote(t,0,0);AddNote(t+0.4,3,3)}
+AddNote(7.2,1,1);AddNote(7.6,2,2);
+for(i=0;i<15;i++){t=8.0+i*0.4;AddNote(t,i%4,i%4);if(i%3==0)AddNote(t,(i+1)%4,(i+1)%4);else AddNote(t+0.2,(i*2)%4,(i*2)%4)}
+AddNote(14.4,0,0);AddNote(14.8,3,3);
+for(i=0;i<27;i++){t=15.0+i*0.4;if(i%2==0){AddNote(t,3,3);AddNote(t+0.1,2,2);AddNote(t+0.2,1,1)}else{AddNote(t,0,0);AddNote(t+0.2,3,3)}}
+for(i=0;i<8;i++){t=27.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t,3,3)}else{AddNote(t,1,1);AddNote(t,2,2)}}
+for(i=0;i<8;i++){t=30.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t,2,2)}else{AddNote(t,1,1);AddNote(t,3,3)}}
+AddNote(33.0,0,0);AddNote(33.0,1,1);AddNote(33.0,2,2);AddNote(33.0,3,3);
+for(i=0;i<25;i++){t=34.0+i*0.4;if(i%4==0){AddNote(t,0,0);AddNote(t,3,3)}else if(i%2==0){AddNote(t,1,1);AddNote(t,2,2)}else AddNote(t,(i*3)%4,(i*3)%4)}
+for(i=0;i<35;i++){t=45.0+i*0.4;if(i%3==0){AddNote(t,0,0);AddNote(t+0.2,1,1)}else if(i%3==1){AddNote(t,3,3);AddNote(t+0.2,2,2)}else{AddNote(t,0,0);AddNote(t+0.2,3,3)}}
+for(i=0;i<25;i++){t=59.0+i*0.4;if(i<12){if(i%4==0){AddNote(t,0,0);AddNote(t+0.2,2,2);AddNote(t+0.2,1,1)}else if(i%4==1){AddNote(t,1,1);AddNote(t+0.2,3,3);AddNote(t+0.2,0,0)}else if(i%4==2){AddNote(t,0,0);AddNote(t+0.2,1,1);AddNote(t+0.2,2,2)}else{AddNote(t,2,2);AddNote(t+0.2,3,3);AddNote(t+0.2,1,1)}}else{if(i%4==0){AddNote(t,0,0);AddNote(t+0.2,3,3);AddNote(t+0.2,1,1)}else if(i%4==1){AddNote(t,1,1);AddNote(t+0.2,2,2);AddNote(t+0.2,3,3)}else if(i%4==2){AddNote(t,0,0);AddNote(t+0.2,1,1);AddNote(t+0.2,3,3)}else{AddNote(t,2,2);AddNote(t+0.2,3,3);AddNote(t+0.2,0,0)}}}
+AddNote(69.2,0,0);AddNote(69.6,3,3);AddNote(70.0,1,1);AddNote(70.4,2,2);AddNote(70.8,0,0);AddNote(71.2,3,3);
+for(i=0;i<20;i++){t=72.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t+0.1,2,2);AddNote(t+0.2,1,1);AddNote(t+0.3,3,3)}else{AddNote(t,3,3);AddNote(t+0.1,1,1);AddNote(t+0.2,2,2);AddNote(t+0.3,0,0)}}
+for(i=0;i<10;i++){t=80.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t,3,3);AddNote(t+0.2,1,1)}else{AddNote(t,1,1);AddNote(t,2,2);AddNote(t+0.2,3,3)}}
+for(i=0;i<58;i++){t=85.3+i*0.1;AddNote(t,(i%2==0)?0:3,(i%2==0)?0:3)}
+for(i=0;i<60;i++){t=91.0+i*0.1;AddNote(t,(i%2==0)?1:2,(i%2==0)?1:2)}
+AddNote(97.0,0,0);AddNote(97.0,3,3);AddNote(97.4,1,1);AddNote(97.8,2,2);
+for(i=0;i<30;i++){t=98.0+i*0.4;if(i<15){if(i%2==0){AddNote(t,3,3);AddNote(t+0.1,2,2);AddNote(t+0.2,1,1);AddNote(t+0.3,0,0)}else{AddNote(t+0.1,3,3);AddNote(t+0.2,2,2);AddNote(t+0.3,1,1)}}else{if(i%2==0){AddNote(t,0,0);AddNote(t+0.1,1,1);AddNote(t+0.2,2,2);AddNote(t+0.3,3,3)}else{AddNote(t+0.1,0,0);AddNote(t+0.2,1,1);AddNote(t+0.3,2,2)}}}
+for(i=0;i<30;i++){t=111.0+i*0.4;if(i%3==0){AddNote(t,0,0);AddNote(t+0.2,3,3)}else if(i%3==1){AddNote(t,0,0);AddNote(t+0.2,1,1)}else{AddNote(t,2,2);AddNote(t+0.2,3,3)}}
+for(i=0;i<15;i++){t=123.0+i*0.4;AddNote(t,0,0);AddNote(t+0.1,3,3);AddNote(t+0.2,1,1);AddNote(t+0.3,2,2)}
+for(i=0;i<15;i++){t=130.0+i*0.4;if(i%4==0){AddNote(t,0,0);AddNote(t,1,1);AddNote(t,2,2)}else if(i%4==1){AddNote(t,1,1);AddNote(t,2,2);AddNote(t,3,3)}else if(i%4==2){AddNote(t,0,0);AddNote(t,2,2);AddNote(t,3,3)}else{AddNote(t,0,0);AddNote(t,1,1);AddNote(t,3,3)}}
+for(i=0;i<27;i++){t=137.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t+0.1,1,1);AddNote(t+0.2,2,2);AddNote(t+0.3,3,3)}else{AddNote(t,3,3);AddNote(t+0.1,2,2);AddNote(t+0.2,1,1);AddNote(t+0.3,0,0)}}
+AddNote(148.4,1,1);AddNote(148.8,2,2);
+for(i=0;i<30;i++){t=149.0+i*0.4;if(i%4==0){AddNote(t,0,0);AddNote(t,3,3);AddNote(t+0.2,(i%8==0)?1:2,(i%8==0)?1:2)}else if(i%4==2){AddNote(t,0,0);AddNote(t,1,1);AddNote(t,3,3);AddNote(t+0.2,2,2)}else{AddNote(t,1,1);AddNote(t,2,2);AddNote(t+0.2,(i%4==1)?0:3,(i%4==1)?0:3)}}
+for(i=0;i<25;i++){t=161.0+i*0.4;if(i%3==0){AddNote(t,0,0);AddNote(t,1,1);AddNote(t,3,3);AddNote(t+0.2,2,2)}else if(i%3==1){AddNote(t,0,0);AddNote(t,2,2);AddNote(t+0.2,(i%6==1)?3:1,(i%6==1)?3:1)}else{AddNote(t,1,1);AddNote(t,2,2);AddNote(t+0.2,(i%6==2)?0:3,(i%6==2)?0:3)}}
+for(i=0;i<7;i++){t=171.0+i*0.4;AddNote(t,(i%2==0)?0:3,(i%2==0)?0:3);AddNote(t+0.2,(i%2==0)?1:2,(i%2==0)?1:2)}
+AddNote(174.0,0,0);AddNote(174.4,3,3);AddNote(174.8,1,1);
+for(i=0;i<12;i++){t=175.0+i*0.4;if(i%2===0){AddNote(t,0,0);AddNote(t,3,3);AddNote(t+0.2,1,1);AddNote(t+0.2,2,2)}else{AddNote(t,1,1);AddNote(t,2,2);AddNote(t+0.2,0,0);AddNote(t+0.2,3,3)}}
+for(i=0;i<12;i++){t=180.0+i*0.4;if(i%3===0){AddNote(t,0,0);AddNote(t,1,1);AddNote(t,3,3);AddNote(t+0.2,2,2)}else if(i%3===1){AddNote(t,0,0);AddNote(t,2,2);AddNote(t+0.2,1,1);AddNote(t+0.2,3,3)}else{AddNote(t,1,1);AddNote(t,2,2);AddNote(t+0.2,0,0);AddNote(t+0.2,3,3)}}
+for(i=0;i<12;i++){t=185.0+i*0.4;if(i%4===0){AddNote(t,0,0);AddNote(t+0.1,1,1);AddNote(t+0.2,2,2);AddNote(t+0.3,3,3)}else if(i%4===1){AddNote(t,3,3);AddNote(t+0.2,2,2)}else if(i%4===2){AddNote(t,1,1);AddNote(t+0.1,2,2);AddNote(t+0.2,0,0);AddNote(t+0.3,3,3)}else{AddNote(t,2,2);AddNote(t+0.2,1,1)}}
+for(i=12;i<25;i++){t=185.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t+0.2,1,1)}else{AddNote(t,3,3);AddNote(t+0.2,2,2)}}
+for(i=0;i<20;i++){t=195.0+i*0.4;AddNote(t,i%2==0?0:3,i%2==0?0:3);AddNote(t+0.1,i%2==0?3:0,i%2==0?3:0)}
+for(i=0;i<12;i++){t=204.0+i*0.4;AddNote(t,0,0);AddNote(t+0.1,1,1);AddNote(t+0.2,2,2);AddNote(t+0.3,3,3)}
+AddNote(209.0,1,1);AddNote(209.4,2,2);AddNote(209.8,3,3);
+for(i=0;i<50;i++){t=210.0+i*0.4;if(i<25){if(i%4==0){AddNote(t,0,0);AddNote(t,1,1);AddNote(t,2,2);AddNote(t,3,3)}else if(i%4==1){AddNote(t,2,3);AddNote(t+0.2,1,1)}else if(i%4==2){AddNote(t,1,3);AddNote(t+0.2,2,2)}else{AddNote(t,0,1);AddNote(t+0.2,3,3)}}else{if(i%4==0){AddNote(t,0,0);AddNote(t,1,1);AddNote(t,2,2);AddNote(t,3,3)}else if(i%4==1){AddNote(t,1,0);AddNote(t+0.2,2,2)}else if(i%4==2){AddNote(t,2,0);AddNote(t+0.2,1,1)}else{AddNote(t,3,2);AddNote(t+0.2,0,0)}}}
+for(i=0;i<8;i++){t=230.0+i*0.4;AddNote(t,3,3);AddNote(t+0.2,2,2)}
+for(i=0;i<15;i++){t=233.0+i*0.4;AddNote(t,(i%2==0)?0:3,(i%2==0)?0:3);AddNote(t+0.2,(i%2==0)?1:2,(i%2==0)?1:2)}
+AddNote(239.0,0,0);AddNote(239.0,1,1);AddNote(239.0,2,2);AddNote(239.0,3,3);
+for(i=0;i<game.notes.length;i++){let c=0;for(j=0;j<game.notes.length;j++){if(Math.abs(game.notes[i].time-game.notes[j].time)<0.03)c++}if(c>=2)game.notes[i].is_chord=true;if(c>=3)game.notes[i].is_multi=true}
 }
 
-function openIM(e) {
-    if(e) { e.stopPropagation(); e.preventDefault(); }
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('im-screen').style.display = 'flex';
-    document.getElementById('im-list-view').style.display = 'flex';
-    document.getElementById('im-detail-view').style.display = 'none';
-    document.getElementById('imTitle').innerText = 'iM SYSTEM';
-    updateImLikesUI();
+function resetGameData(){
+game={clock:-3.0,perfect:0,good:0,bad:0,miss:0,combo:0,maxCombo:0,weightSum:0,feedback:'',feedbackType:'',feedbackTimer:0,comboScale:1.0,screenShake:0,judgeLineGlow:0,bpmPulse:0,flashAlpha:0,notes:[],effects:[],keyHold:[false,false,false,false]};
+generateBeatmap();displayScore=0;displayAcc=100.00;feedbackYOffset=0;isPlaying=false;clockAnchor=0;resumeCountdown=0;pausedClock=0;pausedAudioPos=0;pointerLanes={};
+resetAudioState();
 }
-
-function handleImBack() {
-    const listView = document.getElementById('im-list-view');
-    const detailView = document.getElementById('im-detail-view');
-    if (detailView.style.display === 'block') {
-        detailView.style.display = 'none';
-        listView.style.display = 'flex';
-        document.getElementById('imTitle').innerText = 'iM SYSTEM';
-    } else {
-        document.getElementById('im-screen').style.display = 'none';
-        document.getElementById('start-screen').style.display = 'block';
-        document.getElementById('imBtn').style.animation = 'none';
-        document.getElementById('imBtn').offsetHeight; 
-        document.getElementById('imBtn').style.animation = null;
-    }
+function transitionTo(next,cb){transitionMask.classList.add('show');setTimeout(()=>{if(cb)cb();state=next;setTimeout(()=>transitionMask.classList.remove('show'),100)},400)}
+function startGame(){
+if(state!=='MENU')return;
+state='LOADING';document.getElementById('loading-text').style.display='none';startScreen.style.display='none';
+transitionTo('GAME',()=>{pauseBtn.style.display='flex';resetGameData();lastTime=performance.now();state='GAME';isGameLoopRunning=true;if(reqAnimId)cancelAnimationFrame(reqAnimId);reqAnimId=requestAnimationFrame(gameLoop)});
 }
-
-function openImDetail(user) {
-    document.getElementById('im-list-view').style.display = 'none';
-    document.getElementById('im-detail-view').style.display = 'block';
-    document.getElementById('imTitle').innerText = 'iM POST';
-    if (user === 'nick') {
-        document.getElementById('post-welkin').style.display = 'none';
-        document.getElementById('post-nick').style.display = 'block';
-    } else {
-        document.getElementById('post-welkin').style.display = 'block';
-        document.getElementById('post-nick').style.display = 'none';
-    }
+function spawnEffect(lane,type,isChord,isMulti){const cx=TRACK_X+lane*LANE_W+LANE_W/2;game.effects.push({x:cx,y:JUDGE_Y,life:0.4,type:type,isChord:isChord,isMulti:isMulti})}
+function judgeLane(lane){
+let bestIdx=-1,bestDt=999;
+for(let i=0;i<game.notes.length;i++){let n=game.notes[i];if(n.judged||n.lane!==lane)continue;let dt=Math.abs(n.time-game.clock);if(dt<=BAD_WINDOW&&dt<bestDt){bestDt=dt;bestIdx=i}}
+if(bestIdx!==-1){
+let n=game.notes[bestIdx];n.judged=true;
+if(bestDt<=PERFECT_WINDOW){game.perfect++;game.weightSum+=1.0;game.combo++;game.feedback="PERFECT";game.feedbackType='P';game.judgeLineGlow=1.0;let s=2.5;if(n.is_multi)s=5.0;else if(n.is_chord)s=3.5;game.screenShake=s;spawnEffect(lane,0,n.is_chord,n.is_multi)}
+else if(bestDt<=GOOD_WINDOW){game.good++;game.weightSum+=0.65;game.combo++;game.feedback="GOOD";game.feedbackType='G';game.judgeLineGlow=0.6;game.screenShake=1.5;spawnEffect(lane,1,n.is_chord,n.is_multi)}
+else{game.bad++;game.combo=0;game.feedback="BAD";game.feedbackType='B';spawnEffect(lane,2,n.is_chord,n.is_multi)}
+game.feedbackTimer=0.6;game.comboScale=1.5;feedbackYOffset=0;
+if(game.combo>game.maxCombo)game.maxCombo=game.combo;
+if(Math.abs(n.time-FINAL_CHORD_TIME)<0.05)game.flashAlpha=1.0;
 }
-
-function doImLike(e) {
-    if(e) e.stopPropagation();
-    let addedLikes = parseInt(localStorage.getItem('rhythm_im_likes') || '0');
-    addedLikes++; 
-    localStorage.setItem('rhythm_im_likes', addedLikes);
-    const btn = document.getElementById('likeBtn');
-    btn.classList.add('liked');
-    setTimeout(() => btn.classList.remove('liked'), 200);
-    updateImLikesUI();
 }
-
-function updateHighScoreUI() {
-    if (!currentUser) return;
-    const bestScore = localStorage.getItem('rhythm_best_' + currentUser.name) || '0';
-    document.getElementById('highScoreValue').innerText = parseInt(bestScore).toString().padStart(7, '0');
+pauseBtn.addEventListener('touchstart',handlePauseClick,{passive:false});
+pauseBtn.addEventListener('mousedown',handlePauseClick);
+function handlePauseClick(e){
+if(e){e.stopPropagation();e.preventDefault()}
+if(state!=='GAME'||game.clock<0||resumeCountdown>0)return;
+if(!isConfirmingPause){isConfirmingPause=true;pauseBtn.classList.add('confirming');pauseBtn.innerText='再点';pauseBtn.style.fontSize='12px';pauseClickTimer=setTimeout(()=>{isConfirmingPause=false;pauseBtn.classList.remove('confirming');pauseBtn.innerText='⏸';pauseBtn.style.fontSize='16px'},1000)}
+else{clearTimeout(pauseClickTimer);isConfirmingPause=false;pauseBtn.classList.remove('confirming');pauseBtn.innerText='⏸';pauseBtn.style.fontSize='16px';triggerPause()}
 }
-
-function checkLogin() {
-    document.getElementById('loading-text').style.display = 'none';
-    document.getElementById('transition-mask').classList.remove('show');
-    const saved = localStorage.getItem('rhythm_user');
-    if (saved) {
-        currentUser = JSON.parse(saved);
-        document.getElementById('userAvatarDisplay').src = currentUser.avatar;
-        document.getElementById('userNameDisplay').innerText = currentUser.name;
-        updateHighScoreUI();
-        showStartScreen();
-    } else {
-        document.getElementById('loginModal').classList.add('show');
-    }
+function triggerPause(){if(state!=='GAME')return;state='PAUSED';isGameLoopRunning=false;if(reqAnimId)cancelAnimationFrame(reqAnimId);pausedClock=game.clock;try{pausedAudioPos=bgm.currentTime}catch(e){pausedAudioPos=0}bgm.pause();pauseModal.classList.add('show')}
+function resumeGame(){if(state!=='PAUSED')return;state='RESUMING';pauseModal.classList.remove('show');setTimeout(()=>{state='GAME';resumeCountdown=3.0;lastTime=performance.now();isGameLoopRunning=true;reqAnimId=requestAnimationFrame(gameLoop)},300)}
+function restartGame(){if(state!=='PAUSED')return;state='RESUMING';pauseModal.classList.remove('show');setTimeout(()=>{state='GAME';resetGameData();lastTime=performance.now();isGameLoopRunning=true;reqAnimId=requestAnimationFrame(gameLoop)},300)}
+function quitGame(){if(state!=='PAUSED')return;state='LOADING';pauseModal.classList.remove('show');isGameLoopRunning=false;if(reqAnimId)cancelAnimationFrame(reqAnimId);transitionTo('MENU',()=>{pauseBtn.style.display='none';resetAudioState();showStartScreen()})}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(state==='GAME')triggerPause()}});
+function handleGlobalStart(e){
+if(e.target.closest('#imBtn')||e.target.closest('#im-screen'))return;
+if(state==='MENU'&&startScreen.style.display!=='none'){
+if(e.target.closest('button')||e.target.tagName.toLowerCase()==='input'||e.target.closest('.modal')||e.target.id==='pauseBtn')return;
+if(e.cancelable)e.preventDefault();
+unlockAudio();startGame();
 }
-
-function showStartScreen() {
-    const menuElements = document.querySelectorAll('.menu-anim');
-    menuElements.forEach(el => {
-        el.style.animation = 'none';
-        el.offsetHeight; 
-        el.style.animation = null; 
-    });
-    const imBtn = document.getElementById('imBtn');
-    if(imBtn) {
-        imBtn.style.animation = 'none';
-        imBtn.offsetHeight;
-        imBtn.style.animation = null;
-    }
-    document.getElementById('start-screen').style.display = 'block';
-    state = 'MENU';
 }
+window.addEventListener('mousedown',handleGlobalStart);
+window.addEventListener('touchstart',handleGlobalStart,{passive:false});
+canvas.addEventListener('touchmove',e=>{if(e.cancelable)e.preventDefault()},{passive:false});
 
-function switchUser(e) {
-    e.stopPropagation();
-    localStorage.removeItem('rhythm_user');
-    currentUser = null; tempAvatarBase64 = '';
-    document.getElementById('avatarPreview').style.display = 'none';
-    document.getElementById('nameInput').value = ''; document.getElementById('avatarInput').value = '';
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('loginModal').classList.add('show');
+function handleCanvasDown(clientX,clientY,id){
+if(state==='GAME'&&game.clock>=0&&resumeCountdown<=0){
+const rect=canvas.getBoundingClientRect();
+const x=(clientX-rect.left)/rect.width*SCREEN_W;
+let lane=Math.floor((x-TRACK_X)/LANE_W);
+if(lane>=0&&lane<4){pointerLanes[id]=lane;game.keyHold[lane]=true;judgeLane(lane)}
+}else if(state==='RESULT'){
+const rect=canvas.getBoundingClientRect();
+const y=(clientY-rect.top)/rect.height*SCREEN_H;
+const x=(clientX-rect.left)/rect.width*SCREEN_W;
+if(y>resultButtonY-30&&y<resultButtonY+30&&x>SCREEN_W/2-100&&x<SCREEN_W/2+100)returnToMenu();
 }
-
-document.getElementById('avatarInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            tempAvatarBase64 = evt.target.result;
-            const preview = document.getElementById('avatarPreview');
-            preview.src = tempAvatarBase64;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
+}
+function handleCanvasUp(id){
+let lane=pointerLanes[id];
+if(lane!==undefined){delete pointerLanes[id];let stillHold=false;for(let k in pointerLanes){if(pointerLanes[k]===lane){stillHold=true;break}}if(!stillHold)game.keyHold[lane]=false}
+}
+canvas.addEventListener('touchstart',e=>{
+if(e.cancelable)e.preventDefault();
+lastTouchTime=performance.now();
+for(let i=0;i<e.changedTouches.length;i++){const t=e.changedTouches[i];handleCanvasDown(t.clientX,t.clientY,t.identifier)}
+},{passive:false});
+canvas.addEventListener('touchend',e=>{if(e.cancelable)e.preventDefault();for(let i=0;i<e.changedTouches.length;i++)handleCanvasUp(e.changedTouches[i].identifier)},{passive:false});
+canvas.addEventListener('touchcancel',e=>{for(let i=0;i<e.changedTouches.length;i++)handleCanvasUp(e.changedTouches[i].identifier)},{passive:false});
+canvas.addEventListener('mousedown',e=>{
+if(performance.now()-lastTouchTime<500)return;
+if(e.cancelable)e.preventDefault();
+handleCanvasDown(e.clientX,e.clientY,'mouse');
 });
+canvas.addEventListener('mouseup',e=>{if(performance.now()-lastTouchTime<500)return;handleCanvasUp('mouse')});
 
-function doLogin() {
-    const name = document.getElementById('nameInput').value;
-    if (!name) { alert("请输入你的游戏昵称！"); return; }
-    if (!tempAvatarBase64) { alert("请上传一张头像！"); return; }
-    currentUser = { name, avatar: tempAvatarBase64 };
-    localStorage.setItem('rhythm_user', JSON.stringify(currentUser));
-    document.getElementById('loginModal').classList.remove('show');
-    document.getElementById('userAvatarDisplay').src = currentUser.avatar;
-    document.getElementById('userNameDisplay').innerText = currentUser.name;
-    updateHighScoreUI();
-    setTimeout(() => { showStartScreen(); }, 300);
+window.addEventListener('keydown',e=>{
+if(state==='GAME'&&game.clock>=0&&resumeCountdown<=0&&!e.repeat){
+if(e.key==='c'||e.key==='C'){game.keyHold[0]=true;judgeLane(0)}
+if(e.key==='v'||e.key==='V'){game.keyHold[1]=true;judgeLane(1)}
+if(e.key==='b'||e.key==='B'){game.keyHold[2]=true;judgeLane(2)}
+if(e.key==='n'||e.key==='N'){game.keyHold[3]=true;judgeLane(3)}
 }
-
-window.addEventListener('DOMContentLoaded', checkLogin);
-window.addEventListener('load', checkLogin);
-
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const bgm = document.getElementById('bgm');
-const pauseBtn = document.getElementById('pauseBtn');
-const pauseModal = document.getElementById('pauseModal');
-const transitionMask = document.getElementById('transition-mask');
-const startScreen = document.getElementById('start-screen');
-
-const SCREEN_W = 800;
-const SCREEN_H = 600;
-const LANE_COUNT = 4;
-const TRACK_X = 80;
-const LANE_W = 160;
-const TRACK_W = LANE_COUNT * LANE_W;
-const JUDGE_Y = 500;
-const NOTE_H = 24;
-const SCROLL_SPEED = 750.0; 
-const PERFECT_WINDOW = 0.080;
-const GOOD_WINDOW = 0.140;
-const BAD_WINDOW = 0.200;
-const CHART_OFFSET = -0.2;
-const MUSIC_DELAY = 2.00;
-const AUDIO_LEAD = 0.2;       
-const SONG_DURATION = 242.0;
-const FINAL_CHORD_TIME = 239.0 + CHART_OFFSET;
-
-let state = 'MENU'; 
-let game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
-let lastTime = 0;
-let resultButtonY = 560;
-let reqAnimId = null;
-
-let pauseClickTimer = null;
-let isConfirmingPause = false;
-
-function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
-function easeOutQuad(t) { return t * (2 - t); }
-
-let displayScore = 0;
-let displayAcc = 100.00;
-let feedbackYOffset = 0; 
-
-function resize() {
-    const scale = Math.min(window.innerWidth / SCREEN_W, window.innerHeight / SCREEN_H);
-    canvas.width = SCREEN_W; canvas.height = SCREEN_H;
-    canvas.style.width = SCREEN_W * scale + 'px'; canvas.style.height = SCREEN_H * scale + 'px';
-}
-window.addEventListener('resize', resize); resize();
-
-function getAPGradient(x, y, width) {
-    let w = width || 100;
-    let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
-    g.addColorStop(0, '#ff4d4d'); g.addColorStop(0.2, '#ffcc00'); g.addColorStop(0.4, '#66ff66');
-    g.addColorStop(0.6, '#33ccff'); g.addColorStop(0.8, '#cc66ff'); g.addColorStop(1, '#ff4d4d');
-    return g;
-}
-
-function getFCGradient(x, y, width) {
-    let w = width || 100;
-    let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
-    g.addColorStop(0, '#b464ff'); g.addColorStop(1, '#64c8ff');
-    return g;
-}
-
-// ========== 音频核心 ==========
-
-function unlockAudio() {
-    if (audioUnlocked) return;
-    audioUnlocked = true;
-    try { bgm.load(); } catch(e) {}
-    bgm.muted = true;
-    const p = bgm.play();
-    if (p && p.then) {
-        p.then(() => {
-            if (state === 'MENU') {
-                bgm.pause();
-                try { bgm.currentTime = 0; } catch(e) {}
-            }
-            bgm.muted = false;
-        }).catch(() => { bgm.muted = false; });
-    } else {
-        bgm.muted = false;
-    }
-}
-
-function startAudio() {
-    if (isAudioBroken) return false;
-    if (playPending) return false;
-    if (!bgm.paused) { audioSyncPending = true; return true; }
-    
-    bgm.muted = false;
-    const myToken = ++playToken;
-    playPending = true;
-    playPendingSince = performance.now();
-    let p;
-    try { p = bgm.play(); } catch (e) {
-        playPending = false;
-        console.warn('[Audio] play threw:', e);
-        return false;
-    }
-    if (p && p.then) {
-        p.then(() => {
-            if (myToken !== playToken) return;
-            playPending = false;
-            audioSyncPending = true;
-            audioFailCount = 0;
-        }).catch(err => {
-            if (myToken !== playToken) return;
-            playPending = false;
-            const name = err && err.name;
-            if (name === 'NotAllowedError' || name === 'AbortError') {
-                // 正常情况，不标记损坏
-            } else {
-                console.warn('[Audio] play failed:', err);
-                audioFailCount++;
-                if (audioFailCount >= 5) {
-                    isAudioBroken = true;
-                    console.warn('[Audio] marked broken');
-                }
-            }
-        });
-    } else {
-        playPending = false;
-        audioSyncPending = true;
-    }
-    return true;
-}
-
-function resetAudioState() {
-    playToken++;
-    playPending = false;
-    playPendingSince = 0;
-    audioStarted = false;
-    audioSyncPending = false;
-    isAudioBroken = false;
-    audioFailCount = 0;
-    lastBgTime = 0;
-    lastBgTimeChangeAt = 0;
-    bgTimeInitialized = false;
-    lastHealthCheck = 0;
-    lastSeekTime = 0;
-    bgm.muted = false;
-    try { bgm.pause(); bgm.currentTime = 0; } catch(e) {}
-}
-
-// 首次启动 + 一次性同步
-function updateMusic() {
-    if (isAudioBroken) return;
-    
-    // playPending 看门狗
-    if (playPending && performance.now() - playPendingSince > 2500) {
-        console.warn('[Audio] playPending watchdog timeout');
-        playPending = false;
-        playToken++;
-    }
-    
-    // 首次启动（移除 readyState 限制：即使未就绪也让浏览器处理）
-    if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD) {
-        let target = Math.max(0, game.clock - MUSIC_DELAY);
-        try { bgm.currentTime = target; } catch(e) {}
-        if (startAudio()) audioStarted = true;
-    }
-    
-    // 一次性同步：只在音乐超前时追（避免音符倒退）
-    if (audioStarted && audioSyncPending && !bgm.paused && !playPending) {
-        audioSyncPending = false;
-        let musicTime = bgm.currentTime + MUSIC_DELAY;
-        let drift = musicTime - game.clock;
-        if (drift > 0.03 && drift < 0.35) {
-            clockAnchor = performance.now() - musicTime * 1000;
-            game.clock = musicTime;
-        }
-    }
-}
-
-// 每 300ms 检测音乐健康
-function updateMusicHealth() {
-    if (!isPlaying || isAudioBroken) return;
-    if (game.clock < MUSIC_DELAY) return;
-    
-    const now = performance.now();
-    if (now - lastHealthCheck < 300) return;
-    lastHealthCheck = now;
-    
-    const expected = Math.max(0, game.clock - MUSIC_DELAY);
-    const currentBg = bgm.currentTime;
-    const drift = currentBg - expected;
-    const bgChanged = Math.abs(currentBg - lastBgTime) > 0.005;
-    
-    if (!bgTimeInitialized) {
-        lastBgTime = currentBg;
-        lastBgTimeChangeAt = now;
-        bgTimeInitialized = true;
-        return;
-    }
-    
-    if (bgChanged) {
-        lastBgTime = currentBg;
-        lastBgTimeChangeAt = now;
-    }
-    
-    // 1. 假播放：paused=false 但 currentTime 停滞 > 1.2s
-    if (audioStarted && !bgm.paused && !bgChanged && (now - lastBgTimeChangeAt > 1200)) {
-        console.warn('[AudioHealth] Fake playback, restart at', expected.toFixed(2));
-        try { bgm.pause(); } catch(e) {}
-        try { bgm.currentTime = expected; } catch(e) {}
-        audioStarted = false;
-        if (startAudio()) audioStarted = true;
-        lastBgTimeChangeAt = now;
-        lastSeekTime = now;
-        bgTimeInitialized = false;
-        return;
-    }
-    
-    // 2. 意外暂停
-    if (audioStarted && bgm.paused && !playPending) {
-        console.warn('[AudioHealth] Unexpected pause, resuming at', expected.toFixed(2));
-        try { bgm.currentTime = expected; } catch(e) {}
-        if (startAudio()) audioStarted = true;
-        lastSeekTime = now;
-        bgTimeInitialized = false;
-        return;
-    }
-    
-    // 3. 大漂移校正（seek 音乐，不改 game.clock）
-    if (audioStarted && !bgm.paused && Math.abs(drift) > 0.2 && now - lastSeekTime > 1500) {
-        console.warn('[AudioHealth] Large drift', drift.toFixed(2), 'correcting');
-        try { bgm.currentTime = expected; } catch(e) {}
-        lastSeekTime = now;
-        bgTimeInitialized = false;
-    }
-}
-
-// ================= 谱面生成 =================
-
-function AddNote(time, lane, startLane) {
-    game.notes.push({ time: time + CHART_OFFSET, lane: lane, startLane: startLane, judged: false, is_chord: false, is_multi: false });
-}
-
-function generateBeatmap() {
-    game.notes = [];
-    let t, i, j;
-    for (t = 2.0; t < 7.0; t += 0.8) { AddNote(t, 0, 0); AddNote(t + 0.4, 3, 3); }
-    AddNote(7.2, 1, 1); AddNote(7.6, 2, 2); 
-    for (i = 0; i < 15; i++) { t = 8.0 + i * 0.4; AddNote(t, i % 4, i % 4); if (i % 3 == 0) AddNote(t, (i + 1) % 4, (i + 1) % 4); else AddNote(t + 0.2, (i * 2) % 4, (i * 2) % 4); }
-    AddNote(14.4, 0, 0); AddNote(14.8, 3, 3); 
-    for (i = 0; i < 27; i++) { t = 15.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
-    for (i = 0; i < 8; i++) { t = 27.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); } }
-    for (i = 0; i < 8; i++) { t = 30.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else { AddNote(t, 1, 1); AddNote(t, 3, 3); } }
-    AddNote(33.0, 0, 0); AddNote(33.0, 1, 1); AddNote(33.0, 2, 2); AddNote(33.0, 3, 3);
-    for (i = 0; i < 25; i++) { t = 34.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 2, 2); } else { AddNote(t, (i * 3) % 4, (i * 3) % 4); } }
-    for (i = 0; i < 35; i++) { t = 45.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else if (i % 3 == 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
-    for (i = 0; i < 25; i++) { 
-        t = 59.0 + i * 0.4; 
-        if (i < 12) {
-            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 2, 2); AddNote(t + 0.2, 1, 1); }
-            else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 0, 0); }
-            else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 2, 2); }
-            else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 1, 1); }
-        } else {
-            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 1, 1); }
-            else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.2, 3, 3); }
-            else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 3, 3); }
-            else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); AddNote(t + 0.2, 0, 0); }
-        }
-    }
-    AddNote(69.2, 0, 0); AddNote(69.6, 3, 3); AddNote(70.0, 1, 1); AddNote(70.4, 2, 2); AddNote(70.8, 0, 0); AddNote(71.2, 3, 3); 
-    for (i = 0; i < 20; i++) { t = 72.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 0, 0); } }
-    for (i = 0; i < 10; i++) { t = 80.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); } }
-    for (i = 0; i < 58; i++) { t = 85.3 + i * 0.1; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); }
-    for (i = 0; i < 60; i++) { t = 91.0 + i * 0.1; AddNote(t, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
-    AddNote(97.0, 0, 0); AddNote(97.0, 3, 3); AddNote(97.4, 1, 1); AddNote(97.8, 2, 2); 
-    for (i = 0; i < 30; i++) { 
-        t = 98.0 + i * 0.4; 
-        if (i < 15) {
-            if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } 
-            else { AddNote(t + 0.1, 3, 3); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 1, 1); }
-        } else {
-            if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } 
-            else { AddNote(t + 0.1, 0, 0); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 2, 2); }
-        }
-    }
-    for (i = 0; i < 30; i++) { t = 111.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } else if (i % 3 == 1) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 2, 2); AddNote(t + 0.2, 3, 3); } }
-    for (i = 0; i < 15; i++) { t = 123.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 2, 2); }
-    for (i = 0; i < 15; i++) { t = 130.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); } else if (i % 4 == 1) { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); } else if (i % 4 == 2) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t, 3, 3); } else { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); } }
-    for (i = 0; i < 27; i++) { t = 137.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } }
-    AddNote(148.4, 1, 1); AddNote(148.8, 2, 2); 
-    for (i = 0; i < 30; i++) { 
-        t = 149.0 + i * 0.4; 
-        if (i % 4 == 0) { 
-            AddNote(t, 0, 0); AddNote(t, 3, 3); 
-            AddNote(t + 0.2, (i % 8 == 0) ? 1 : 2, (i % 8 == 0) ? 1 : 2);
-        } else if (i % 4 == 2) { 
-            AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3);
-            AddNote(t + 0.2, 2, 2);
-        } else { 
-            AddNote(t, 1, 1); AddNote(t, 2, 2);
-            AddNote(t + 0.2, (i % 4 == 1) ? 0 : 3, (i % 4 == 1) ? 0 : 3);
-        }
-    }
-    for (i = 0; i < 25; i++) { 
-        t = 161.0 + i * 0.4; 
-        if (i % 3 == 0) { 
-            AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3);
-            AddNote(t + 0.2, 2, 2);
-        } else if (i % 3 == 1) { 
-            AddNote(t, 0, 0); AddNote(t, 2, 2);
-            AddNote(t + 0.2, (i % 6 == 1) ? 3 : 1, (i % 6 == 1) ? 3 : 1);
-        } else { 
-            AddNote(t, 1, 1); AddNote(t, 2, 2);
-            AddNote(t + 0.2, (i % 6 == 2) ? 0 : 3, (i % 6 == 2) ? 0 : 3);
-        }
-    }
-    for (i = 0; i < 7; i++) { t = 171.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
-    AddNote(174.0, 0, 0); AddNote(174.4, 3, 3); AddNote(174.8, 1, 1); 
-    for (i = 0; i < 12; i++) {
-        t = 175.0 + i * 0.4;
-        if (i % 2 === 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 2, 2); }
-        else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 3, 3); }
-    }
-    for (i = 0; i < 12; i++) {
-        t = 180.0 + i * 0.4;
-        if (i % 3 === 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
-        else if (i % 3 === 1) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 3, 3); }
-        else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 3, 3); }
-    }
-    for (i = 0; i < 12; i++) {
-        t = 185.0 + i * 0.4;
-        if (i % 4 === 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
-        else if (i % 4 === 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
-        else if (i % 4 === 2) { AddNote(t, 1, 1); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.3, 3, 3); }
-        else { AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); }
-    }
-    for (i = 12; i < 25; i++) { t = 185.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } }
-    for (i = 0; i < 20; i++) { t = 195.0 + i * 0.4; AddNote(t, i % 2 == 0 ? 0 : 3, i % 2 == 0 ? 0 : 3); AddNote(t + 0.1, i % 2 == 0 ? 3 : 0, i % 2 == 0 ? 3 : 0); }
-    for (i = 0; i < 12; i++) { t = 204.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
-    AddNote(209.0, 1, 1); AddNote(209.4, 2, 2); AddNote(209.8, 3, 3); 
-    for (i = 0; i < 50; i++) { 
-        t = 210.0 + i * 0.4; 
-        if (i < 25) {
-            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); }
-            else if (i % 4 == 1) { AddNote(t, 2, 3); AddNote(t + 0.2, 1, 1); }
-            else if (i % 4 == 2) { AddNote(t, 1, 3); AddNote(t + 0.2, 2, 2); }
-            else { AddNote(t, 0, 1); AddNote(t + 0.2, 3, 3); } 
-        } else {
-            if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t, 3, 3); }
-            else if (i % 4 == 1) { AddNote(t, 1, 0); AddNote(t + 0.2, 2, 2); }
-            else if (i % 4 == 2) { AddNote(t, 2, 0); AddNote(t + 0.2, 1, 1); }
-            else { AddNote(t, 3, 2); AddNote(t + 0.2, 0, 0); } 
-        }
-    }
-    for (i = 0; i < 8; i++) { t = 230.0 + i * 0.4; AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
-    for (i = 0; i < 15; i++) { t = 233.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
-    AddNote(239.0, 0, 0); AddNote(239.0, 1, 1); AddNote(239.0, 2, 2); AddNote(239.0, 3, 3);
-
-    for (i = 0; i < game.notes.length; i++) { 
-        let count = 0; 
-        for (j = 0; j < game.notes.length; j++) { 
-            if (Math.abs(game.notes[i].time - game.notes[j].time) < 0.03) count++; 
-        } 
-        if (count >= 2) game.notes[i].is_chord = true; 
-        if (count >= 3) game.notes[i].is_multi = true; 
-    }
-}
-
-function resetGameData() {
-    game = { clock: -3.0, perfect: 0, good: 0, bad: 0, miss: 0, combo: 0, maxCombo: 0, weightSum: 0, feedback: '', feedbackType: '', feedbackTimer: 0, comboScale: 1.0, screenShake: 0, judgeLineGlow: 0, bpmPulse: 0, flashAlpha: 0, notes: [], effects: [], keyHold: [false,false,false,false] };
-    generateBeatmap();
-    displayScore = 0;
-    displayAcc = 100.00;
-    feedbackYOffset = 0;
-    isPlaying = false;
-    clockAnchor = 0;
-    resumeCountdown = 0;
-    pausedClock = 0;
-    pausedAudioPos = 0;
-    pointerLanes = {};
-    resetAudioState();
-}
-
-function transitionTo(nextState, callback) {
-    transitionMask.classList.add('show');
-    setTimeout(() => {
-        if (callback) callback();
-        state = nextState;
-        setTimeout(() => {
-            transitionMask.classList.remove('show');
-        }, 100);
-    }, 400);
-}
-
-function startGame() {
-    if (state !== 'MENU') return;
-    state = 'LOADING'; 
-    document.getElementById('loading-text').style.display = 'none';
-    startScreen.style.display = 'none';
-    
-    transitionTo('GAME', () => {
-        pauseBtn.style.display = 'flex';
-        resetGameData();
-        lastTime = performance.now();
-        state = 'GAME';
-        isGameLoopRunning = true;
-        if (reqAnimId) cancelAnimationFrame(reqAnimId);
-        reqAnimId = requestAnimationFrame(gameLoop);
-    });
-}
-
-function spawnEffect(lane, type, isChord, isMulti) {
-    const cx = TRACK_X + lane * LANE_W + LANE_W / 2;
-    game.effects.push({ x: cx, y: JUDGE_Y, life: 0.4, type: type, isChord: isChord, isMulti: isMulti });
-}
-
-function judgeLane(lane) {
-    let bestIdx = -1, bestDt = 999;
-    for (let i = 0; i < game.notes.length; i++) {
-        let n = game.notes[i];
-        if (n.judged || n.lane !== lane) continue;
-        let dt = Math.abs(n.time - game.clock);
-        if (dt <= BAD_WINDOW && dt < bestDt) { bestDt = dt; bestIdx = i; }
-    }
-    if (bestIdx !== -1) {
-        let n = game.notes[bestIdx]; n.judged = true;
-        if (bestDt <= PERFECT_WINDOW) {
-            game.perfect++; game.weightSum += 1.0; game.combo++; game.feedback = "PERFECT"; game.feedbackType = 'P'; game.judgeLineGlow = 1.0; 
-            let shake = 2.5;
-            if (n.is_multi) shake = 5.0;
-            else if (n.is_chord) shake = 3.5;
-            game.screenShake = shake;
-            spawnEffect(lane, 0, n.is_chord, n.is_multi);
-        } else if (bestDt <= GOOD_WINDOW) {
-            game.good++; game.weightSum += 0.65; game.combo++; game.feedback = "GOOD"; game.feedbackType = 'G'; game.judgeLineGlow = 0.6; game.screenShake = 1.5; spawnEffect(lane, 1, n.is_chord, n.is_multi);
-        } else {
-            game.bad++; game.combo = 0; game.feedback = "BAD"; game.feedbackType = 'B'; spawnEffect(lane, 2, n.is_chord, n.is_multi);
-        }
-        game.feedbackTimer = 0.6; game.comboScale = 1.5; feedbackYOffset = 0;
-        if (game.combo > game.maxCombo) game.maxCombo = game.combo;
-        if (Math.abs(n.time - FINAL_CHORD_TIME) < 0.05) game.flashAlpha = 1.0;
-    }
-}
-
-pauseBtn.addEventListener('touchstart', handlePauseClick, { passive: false });
-pauseBtn.addEventListener('mousedown', handlePauseClick);
-
-function handlePauseClick(e) {
-    if (e) { e.stopPropagation(); e.preventDefault(); }
-    if (state !== 'GAME' || game.clock < 0 || resumeCountdown > 0) return;
-
-    if (!isConfirmingPause) {
-        isConfirmingPause = true;
-        pauseBtn.classList.add('confirming');
-        pauseBtn.innerText = '再点';
-        pauseBtn.style.fontSize = '12px';
-        pauseClickTimer = setTimeout(() => {
-            isConfirmingPause = false;
-            pauseBtn.classList.remove('confirming');
-            pauseBtn.innerText = '⏸';
-            pauseBtn.style.fontSize = '16px';
-        }, 1000);
-    } else {
-        clearTimeout(pauseClickTimer);
-        isConfirmingPause = false;
-        pauseBtn.classList.remove('confirming');
-        pauseBtn.innerText = '⏸';
-        pauseBtn.style.fontSize = '16px';
-        triggerPause();
-    }
-}
-
-function triggerPause() {
-    if (state !== 'GAME') return;
-    state = 'PAUSED';
-    isGameLoopRunning = false; 
-    if (reqAnimId) cancelAnimationFrame(reqAnimId);
-    pausedClock = game.clock;
-    try { pausedAudioPos = bgm.currentTime; } catch(e) { pausedAudioPos = 0; }
-    bgm.pause();
-    pauseModal.classList.add('show');
-}
-
-function resumeGame() {
-    if (state !== 'PAUSED') return;
-    state = 'RESUMING';
-    pauseModal.classList.remove('show');
-    setTimeout(() => {
-        state = 'GAME';
-        resumeCountdown = 3.0;
-        lastTime = performance.now();
-        isGameLoopRunning = true;
-        reqAnimId = requestAnimationFrame(gameLoop);
-    }, 300);
-}
-
-function restartGame() {
-    if (state !== 'PAUSED') return;
-    state = 'RESUMING';
-    pauseModal.classList.remove('show');
-    setTimeout(() => {
-        state = 'GAME';
-        resetGameData();
-        lastTime = performance.now();
-        isGameLoopRunning = true;
-        reqAnimId = requestAnimationFrame(gameLoop);
-    }, 300);
-}
-
-function quitGame() {
-    if (state !== 'PAUSED') return;
-    state = 'LOADING';
-    pauseModal.classList.remove('show');
-    isGameLoopRunning = false;
-    if (reqAnimId) cancelAnimationFrame(reqAnimId);
-    transitionTo('MENU', () => {
-        pauseBtn.style.display = 'none';
-        resetAudioState();
-        showStartScreen();
-    });
-}
-
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        if (state === 'GAME') triggerPause();
-    }
+if(e.key==='r'||e.key==='R')returnToMenu();
+if(e.key==='Escape'&&state==='GAME')triggerPause();
 });
-
-function handleGlobalStart(e) {
-    if (e.target.closest('#imBtn') || e.target.closest('#im-screen')) return;
-    if (state === 'MENU' && startScreen.style.display !== 'none') {
-        if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
-        if (e.cancelable) e.preventDefault();
-        unlockAudio();
-        startGame();
-    }
-}
-window.addEventListener('mousedown', handleGlobalStart);
-window.addEventListener('touchstart', handleGlobalStart, { passive: false });
-
-// 防御性拦截
-canvas.addEventListener('touchmove', e => {
-    if (e.cancelable) e.preventDefault();
-}, { passive: false });
-
-// ====== 触屏判定（保持原判定逻辑不变） ======
-function handleCanvasDown(clientX, clientY, id) {
-    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0) {
-        const rect = canvas.getBoundingClientRect();
-        const x = (clientX - rect.left) / rect.width * SCREEN_W;
-        let lane = Math.floor((x - TRACK_X) / LANE_W);
-        
-        if (lane >= 0 && lane < 4) {
-            pointerLanes[id] = lane;
-            game.keyHold[lane] = true; 
-            judgeLane(lane);
-        }
-    } else if (state === 'RESULT') {
-        const rect = canvas.getBoundingClientRect();
-        const y = (clientY - rect.top) / rect.height * SCREEN_H;
-        const x = (clientX - rect.left) / rect.width * SCREEN_W;
-        if (y > resultButtonY - 30 && y < resultButtonY + 30 && x > SCREEN_W/2 - 100 && x < SCREEN_W/2 + 100) returnToMenu();
-    }
-}
-
-function handleCanvasUp(id) {
-    let lane = pointerLanes[id];
-    if (lane !== undefined) {
-        delete pointerLanes[id];
-        let stillHold = false;
-        for (let k in pointerLanes) { if (pointerLanes[k] === lane) { stillHold = true; break; } }
-        if (!stillHold) game.keyHold[lane] = false;
-    }
-}
-
-canvas.addEventListener('touchstart', e => {
-    if (e.cancelable) e.preventDefault();
-    lastTouchTime = performance.now();  // 标记：最近有触摸事件
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        handleCanvasDown(t.clientX, t.clientY, t.identifier);
-    }
-}, { passive: false });
-
-canvas.addEventListener('touchend', e => {
-    if (e.cancelable) e.preventDefault();
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        handleCanvasUp(e.changedTouches[i].identifier);
-    }
-}, { passive: false });
-
-canvas.addEventListener('touchcancel', e => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        handleCanvasUp(e.changedTouches[i].identifier);
-    }
-}, { passive: false });
-
-// 鼠标兜底：如果最近 500ms 内有触摸，忽略模拟 mousedown
-canvas.addEventListener('mousedown', e => {
-    if (performance.now() - lastTouchTime < 500) return;  // ★ 关键：阻止手机模拟 mousedown
-    if (e.cancelable) e.preventDefault();
-    handleCanvasDown(e.clientX, e.clientY, 'mouse');
+window.addEventListener('keyup',e=>{
+if(e.key==='c'||e.key==='C')game.keyHold[0]=false;
+if(e.key==='v'||e.key==='V')game.keyHold[1]=false;
+if(e.key==='b'||e.key==='B')game.keyHold[2]=false;
+if(e.key==='n'||e.key==='N')game.keyHold[3]=false;
 });
-canvas.addEventListener('mouseup', e => {
-    if (performance.now() - lastTouchTime < 500) return;
-    handleCanvasUp('mouse');
-});
-// ========================================================
+function returnToMenu(){if(state==='MENU')return;state='LOADING';isGameLoopRunning=false;if(reqAnimId)cancelAnimationFrame(reqAnimId);transitionTo('MENU',()=>{pauseBtn.style.display='none';resetAudioState();showStartScreen()})}
 
-window.addEventListener('keydown', e => {
-    if (state === 'GAME' && game.clock >= 0 && resumeCountdown <= 0 && !e.repeat) {
-        if (e.key === 'c' || e.key === 'C') { game.keyHold[0]=true; judgeLane(0); }
-        if (e.key === 'v' || e.key === 'V') { game.keyHold[1]=true; judgeLane(1); }
-        if (e.key === 'b' || e.key === 'B') { game.keyHold[2]=true; judgeLane(2); }
-        if (e.key === 'n' || e.key === 'N') { game.keyHold[3]=true; judgeLane(3); }
-    }
-    if (e.key === 'r' || e.key === 'R') returnToMenu();
-    if (e.key === 'Escape' && state === 'GAME') triggerPause();
-});
-window.addEventListener('keyup', e => {
-    if (e.key === 'c' || e.key === 'C') game.keyHold[0]=false;
-    if (e.key === 'v' || e.key === 'V') game.keyHold[1]=false;
-    if (e.key === 'b' || e.key === 'B') game.keyHold[2]=false;
-    if (e.key === 'n' || e.key === 'N') game.keyHold[3]=false;
-});
-
-function returnToMenu() {
-    if (state === 'MENU') return;
-    state = 'LOADING';
-    isGameLoopRunning = false;
-    if (reqAnimId) cancelAnimationFrame(reqAnimId);
-    transitionTo('MENU', () => {
-        pauseBtn.style.display = 'none';
-        resetAudioState();
-        showStartScreen();
-    });
+function gameLoop(time){
+if(!isGameLoopRunning||state!=='GAME')return;
+let dt=(time-lastTime)/1000;lastTime=time;
+if(dt>0.1)dt=0.1;
+if(resumeCountdown>0){
+resumeCountdown-=dt;
+if(resumeCountdown<=0){
+clockAnchor=performance.now()-pausedClock*1000;game.clock=pausedClock;
+if(!isAudioBroken&&pausedClock>=MUSIC_DELAY){
+try{bgm.currentTime=Math.max(0,pausedClock-MUSIC_DELAY)}catch(e){}
+if(!audioStarted)audioStarted=true;
+if(startAudio())audioSyncPending=true;
+}
+}
+drawGame(dt);
+let cd=Math.ceil(resumeCountdown);
+if(cd>=1&&cd<=3){
+ctx.textAlign='center';ctx.font='bold 180px "Microsoft YaHei"';ctx.fillStyle='#ffe664';ctx.shadowBlur=30;ctx.shadowColor='#ffe664';
+ctx.fillText(cd,SCREEN_W/2,SCREEN_H/2+60);ctx.shadowBlur=0;
+}
+reqAnimId=requestAnimationFrame(gameLoop);return;
+}
+if(game.clock<0){game.clock+=dt;if(game.clock>=0){game.clock=0;clockAnchor=performance.now();isPlaying=true}}
+else if(isPlaying){game.clock=(performance.now()-clockAnchor)/1000}
+updateMusic();
+updateMusicHealth();
+if(isPlaying){
+let phase=(game.clock%0.4+0.4)%0.4;game.bpmPulse=Math.pow(1.0-phase/0.4,3);
+if(game.screenShake>0)game.screenShake=lerp(game.screenShake,0,dt*15);
+if(game.judgeLineGlow>0)game.judgeLineGlow=lerp(game.judgeLineGlow,0,dt*8);
+if(game.comboScale>1)game.comboScale=lerp(game.comboScale,1,dt*10);
+if(game.flashAlpha>0)game.flashAlpha=lerp(game.flashAlpha,0,dt*5);
+if(game.feedbackTimer>0){game.feedbackTimer-=dt;feedbackYOffset+=dt*50}
+for(let i=game.effects.length-1;i>=0;i--){game.effects[i].life-=dt;if(game.effects[i].life<=0)game.effects.splice(i,1)}
+for(let n of game.notes){if(!n.judged&&game.clock>n.time+BAD_WINDOW){n.judged=true;game.miss++;game.combo=0;game.feedback="MISS";game.feedbackType='M';game.feedbackTimer=0.6;feedbackYOffset=0}}
+if(game.clock>SONG_DURATION+MUSIC_DELAY){
+bgm.pause();state='RESULT';isGameLoopRunning=false;pauseBtn.style.display='none';
+let finalScore=Math.floor(900000*(game.weightSum/game.notes.length)+100000*(game.maxCombo/game.notes.length));
+if(currentUser){const bk='rhythm_best_'+currentUser.name;const ob=parseInt(localStorage.getItem(bk)||'0');if(finalScore>ob)localStorage.setItem(bk,finalScore.toString());updateHighScoreUI()}
+drawResult();return;
+}
+}
+drawGame(dt);
+reqAnimId=requestAnimationFrame(gameLoop);
 }
 
-function gameLoop(time) {
-    if (!isGameLoopRunning || state !== 'GAME') return;
-    
-    let dt = (time - lastTime) / 1000; lastTime = time;
-    if (dt > 0.1) dt = 0.1; 
-    
-    // ===== 恢复倒计时 =====
-    if (resumeCountdown > 0) {
-        resumeCountdown -= dt;
-        if (resumeCountdown <= 0) {
-            clockAnchor = performance.now() - pausedClock * 1000;
-            game.clock = pausedClock;
-            
-            if (!isAudioBroken && pausedClock >= MUSIC_DELAY) {
-                try { bgm.currentTime = Math.max(0, pausedClock - MUSIC_DELAY); } catch(e) {}
-                if (!audioStarted) audioStarted = true;
-                if (startAudio()) audioSyncPending = true;
-            }
-        }
-        drawGame(dt);
-        let cd = Math.ceil(resumeCountdown);
-        if (cd >= 1 && cd <= 3) {
-            ctx.textAlign = 'center'; 
-            ctx.font = 'bold 180px "Microsoft YaHei"'; 
-            ctx.fillStyle = '#ffe664'; 
-            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
-            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
-            ctx.shadowBlur = 0;
-        }
-        reqAnimId = requestAnimationFrame(gameLoop);
-        return;
-    }
-
-    // ===== 时钟推进 =====
-    if (game.clock < 0) {
-        game.clock += dt;
-        if (game.clock >= 0) {
-            game.clock = 0;
-            clockAnchor = performance.now();
-            isPlaying = true;
-        }
-    } else if (isPlaying) {
-        game.clock = (performance.now() - clockAnchor) / 1000;
-    }
-
-    // ===== 音乐控制 =====
-    updateMusic();
-    updateMusicHealth();
-
-    // ===== 游戏逻辑 =====
-    if (isPlaying) {
-        let phase = (game.clock % 0.4 + 0.4) % 0.4;
-        game.bpmPulse = Math.pow(1.0 - phase / 0.4, 3); 
-        
-        if (game.screenShake > 0) game.screenShake = lerp(game.screenShake, 0, dt * 15);
-        if (game.judgeLineGlow > 0) game.judgeLineGlow = lerp(game.judgeLineGlow, 0, dt * 8);
-        if (game.comboScale > 1) game.comboScale = lerp(game.comboScale, 1, dt * 10);
-        if (game.flashAlpha > 0) game.flashAlpha = lerp(game.flashAlpha, 0, dt * 5);
-        
-        if (game.feedbackTimer > 0) {
-            game.feedbackTimer -= dt;
-            feedbackYOffset += dt * 50; 
-        }
-        for (let i = game.effects.length - 1; i >= 0; i--) { 
-            game.effects[i].life -= dt; 
-            if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
-        }
-        for (let n of game.notes) { 
-            if (!n.judged && game.clock > n.time + BAD_WINDOW) { 
-                n.judged = true; game.miss++; game.combo = 0; 
-                game.feedback = "MISS"; game.feedbackType = 'M'; 
-                game.feedbackTimer = 0.6; feedbackYOffset = 0; 
-            } 
-        }
-        if (game.clock > SONG_DURATION + MUSIC_DELAY) {
-            bgm.pause(); state = 'RESULT';
-            isGameLoopRunning = false;
-            pauseBtn.style.display = 'none';
-            let finalScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
-            if (currentUser) {
-                const bestScoreKey = 'rhythm_best_' + currentUser.name;
-                const oldBest = parseInt(localStorage.getItem(bestScoreKey) || '0');
-                if (finalScore > oldBest) localStorage.setItem(bestScoreKey, finalScore.toString());
-                updateHighScoreUI();
-            }
-            drawResult();
-            return;
-        }
-    }
-
-    drawGame(dt);
-    reqAnimId = requestAnimationFrame(gameLoop);
+function drawGame(dt){
+ctx.save();
+if(game.screenShake>0.1)ctx.translate((Math.random()-0.5)*game.screenShake,(Math.random()-0.5)*game.screenShake);
+let targetScore=Math.floor(900000*(game.weightSum/game.notes.length)+100000*(game.maxCombo/game.notes.length));
+displayScore=lerp(displayScore,targetScore,dt*15);
+if(Math.abs(displayScore-targetScore)<1)displayScore=targetScore;
+let totalJudged=game.perfect+game.good+game.bad+game.miss;
+let targetAcc=totalJudged===0?100.00:((game.perfect+game.good*0.65)/totalJudged)*100;
+displayAcc=lerp(displayAcc,targetAcc,dt*15);
+let bgGrad=ctx.createLinearGradient(0,0,0,SCREEN_H);bgGrad.addColorStop(0,'#080c14');bgGrad.addColorStop(1,'#020305');
+ctx.fillStyle=bgGrad;ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+if(game.clock>0){
+let waveOffset=(game.clock*60)%150;
+for(let i=0;i<5;i++){
+let waveY=80+i*130+waveOffset;
+ctx.strokeStyle=`rgba(30,60,100,${0.1+game.bpmPulse*0.2})`;
+ctx.lineWidth=2+game.bpmPulse*2;
+ctx.beginPath();ctx.moveTo(0,waveY);ctx.lineTo(TRACK_X,waveY);ctx.moveTo(TRACK_X+TRACK_W,waveY);ctx.lineTo(SCREEN_W,waveY);ctx.stroke();
+}
+}
+let trackGrad=ctx.createLinearGradient(TRACK_X,0,TRACK_X+TRACK_W,0);
+trackGrad.addColorStop(0,'rgba(20,25,38,0.8)');trackGrad.addColorStop(0.5,'rgba(30,38,55,0.9)');trackGrad.addColorStop(1,'rgba(20,25,38,0.8)');
+ctx.fillStyle=trackGrad;ctx.fillRect(TRACK_X,0,TRACK_W,SCREEN_H);
+ctx.lineWidth=1+game.bpmPulse*2;
+ctx.strokeStyle=`rgba(80,150,255,${0.2+game.bpmPulse*0.4})`;
+for(let i=0;i<=LANE_COUNT;i++){let x=TRACK_X+i*LANE_W;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,SCREEN_H);ctx.stroke()}
+for(let i=0;i<4;i++){if(game.keyHold[i]){let kg=ctx.createLinearGradient(0,JUDGE_Y,0,SCREEN_H);kg.addColorStop(0,'rgba(50,150,255,0.6)');kg.addColorStop(1,'rgba(50,150,255,0)');ctx.fillStyle=kg;ctx.fillRect(TRACK_X+i*LANE_W+2,JUDGE_Y,LANE_W-4,SCREEN_H-JUDGE_Y)}}
+let glowW=8+game.judgeLineGlow*20+game.bpmPulse*6;
+let glowA=0.5+game.judgeLineGlow*0.5;
+ctx.fillStyle=`rgba(80,180,255,${glowA})`;
+ctx.fillRect(TRACK_X,JUDGE_Y-glowW/2,TRACK_W,glowW);
+ctx.fillStyle='#ffffff';ctx.shadowBlur=10;ctx.shadowColor='#50c8ff';
+ctx.fillRect(TRACK_X,JUDGE_Y-2,TRACK_W,4);ctx.shadowBlur=0;
+for(let n of game.notes){
+if(n.judged)continue;
+let yPos=JUDGE_Y-(n.time-game.clock)*SCROLL_SPEED;
+if(yPos<-NOTE_H*4||yPos>SCREEN_H+NOTE_H*4)continue;
+let progress=Math.max(0,Math.min(1,(yPos-(-NOTE_H))/(JUDGE_Y-(-NOTE_H))));
+let localP=Math.min(1,progress/0.6);
+let smoothP=easeOutQuad(localP);
+let startX=TRACK_X+n.startLane*LANE_W+LANE_W/2;
+let endX=TRACK_X+n.lane*LANE_W+LANE_W/2;
+let currentX=lerp(startX,endX,smoothP);
+let w=LANE_W-30,h=NOTE_H,x=currentX-w/2;
+let isFinal=Math.abs(n.time-FINAL_CHORD_TIME)<0.05;
+let alpha=Math.min(1,progress*5);
+if(isFinal){for(let t=30;t>0;t--){let tailY=yPos-t*25;if(tailY>SCREEN_H)continue;ctx.fillStyle=t<10?`rgba(180,230,255,${0.8*alpha})`:(t<20?`rgba(80,160,220,${0.6*alpha})`:`rgba(20,60,120,${0.3*alpha})`);ctx.fillRect(x-t*2,tailY,w+t*4,h+20)}}
+else{for(let t=3;t>0;t--){let tailY=yPos-t*15;ctx.fillStyle=`rgba(50,120,200,${(0.5-t*0.15)*alpha})`;ctx.fillRect(x+t*4,tailY,w-t*8,h)}}
+ctx.fillStyle=isFinal?`rgba(255,255,255,${alpha})`:`rgba(80,180,255,${alpha})`;
+safeRoundRect(ctx,x,yPos-h/2,w,h,8);ctx.fill();
+ctx.fillStyle=`rgba(255,255,255,${0.8*alpha})`;ctx.fillRect(x+4,yPos-h/2+3,w-8,4);
+if(n.is_chord){ctx.lineWidth=3;ctx.strokeStyle=`rgba(255,220,0,${alpha})`;safeRoundRect(ctx,x,yPos-h/2,w,h,8);ctx.stroke()}
+}
+for(let ef of game.effects){
+let progress=1.0-(ef.life/0.4);
+let easedProg=easeOutQuad(progress);
+let size=20+easedProg*80;
+if(ef.isMulti)size=30+easedProg*110;
+else if(ef.isChord)size=25+easedProg*95;
+let alpha=1.0-progress;
+let color=ef.type===0?`rgba(255,230,100,${alpha})`:(ef.type===1?`rgba(100,200,255,${alpha})`:`rgba(120,120,120,${alpha})`);
+ctx.strokeStyle=color;ctx.lineWidth=5-progress*3;ctx.shadowBlur=15;ctx.shadowColor=color;
+safeRoundRect(ctx,ef.x-size,ef.y-size/2,size*2,size,10);ctx.stroke();
+if(ef.isChord){ctx.strokeStyle=`rgba(255,255,255,${alpha*0.5})`;ctx.lineWidth=2;safeRoundRect(ctx,ef.x-size*1.1,ef.y-size/2*1.1,size*2.2,size*1.1,12);ctx.stroke()}
+ctx.shadowBlur=0;
+}
+if(game.flashAlpha>0){ctx.fillStyle=`rgba(255,255,255,${game.flashAlpha*0.8})`;ctx.fillRect(0,0,SCREEN_W,SCREEN_H)}
+if(game.clock>=0){
+let musicProg=Math.max(0,Math.min(1,(game.clock-MUSIC_DELAY)/SONG_DURATION));
+let barX=TRACK_X,barY=SCREEN_H-4,barW=TRACK_W,barH=4;
+ctx.fillStyle='rgba(255,255,255,0.05)';ctx.fillRect(barX,barY,barW,barH);
+let pg=ctx.createLinearGradient(barX,0,barX+barW,0);pg.addColorStop(0,'rgba(80,200,255,0.8)');pg.addColorStop(1,'rgba(100,220,255,1.0)');
+ctx.fillStyle=pg;ctx.fillRect(barX,barY,barW*musicProg,barH);
+ctx.fillStyle='rgba(255,255,255,0.4)';ctx.fillRect(barX+barW*musicProg-2,barY,2,barH);
+}
+ctx.textAlign='right';
+ctx.fillStyle='#ffffff';ctx.font='bold 34px Consolas, sans-serif';ctx.shadowBlur=5;ctx.shadowColor='rgba(0,0,0,0.8)';
+ctx.fillText(Math.round(displayScore).toString().padStart(7,'0'),SCREEN_W-25,45);
+ctx.fillStyle='#a0c0ff';ctx.font='bold 20px Consolas, sans-serif';
+ctx.fillText(displayAcc.toFixed(2)+'%',SCREEN_W-25,75);ctx.shadowBlur=0;
+if(game.combo>2){
+ctx.textAlign='center';
+let comboText=game.combo.toString();
+let comboSize=Math.floor(52*game.comboScale);
+ctx.font=`bold ${comboSize}px 'Segoe UI', sans-serif`;
+let isAP=(game.good===0&&game.bad===0&&game.miss===0);
+let isFC=(game.miss===0);
+let textWidth=ctx.measureText(comboText).width;
+let centerX=SCREEN_W/2,textY=70;
+if(isAP){ctx.fillStyle=getAPGradient(centerX,textY,textWidth);ctx.shadowColor='rgba(255,255,255,0.8)'}
+else if(isFC){ctx.fillStyle=getFCGradient(centerX,textY,textWidth);ctx.shadowColor='rgba(100,200,255,0.8)'}
+else{ctx.fillStyle=game.comboScale>1.05?'#ffffff':'#b4dcff';ctx.shadowColor='#50c8ff'}
+ctx.shadowBlur=20;ctx.fillText(comboText,centerX,textY);
+ctx.font='bold 16px "Microsoft YaHei"';ctx.fillStyle='#788cbe';ctx.shadowBlur=0;
+ctx.fillText('C O M B O',centerX,100);
+}
+if(game.feedbackTimer>0){
+let fbAlpha=Math.min(1,game.feedbackTimer*4);
+ctx.textAlign='center';ctx.font='bold 42px "Microsoft YaHei"';
+ctx.fillStyle=game.feedbackType==='P'?`rgba(255,230,100,${fbAlpha})`:(game.feedbackType==='G'?`rgba(100,200,255,${fbAlpha})`:`rgba(150,150,150,${fbAlpha})`);
+ctx.shadowBlur=15;ctx.shadowColor=ctx.fillStyle;
+ctx.fillText(game.feedback,SCREEN_W/2,JUDGE_Y-130-feedbackYOffset);ctx.shadowBlur=0;
+}
+if(game.clock>239.5){
+let outroAlpha=Math.min(1,(game.clock-239.5)*2);
+ctx.textAlign='center';
+ctx.font='bold 180px Impact, sans-serif';ctx.fillStyle=`rgba(80,200,255,${outroAlpha})`;ctx.shadowBlur=30;ctx.shadowColor=`rgba(80,200,255,${outroAlpha})`;
+ctx.fillText('V.',SCREEN_W/2,300);
+ctx.font='bold 50px "Arial Black", sans-serif';ctx.fillStyle=`rgba(220,220,220,${outroAlpha})`;ctx.shadowBlur=10;ctx.shadowColor=`rgba(255,255,255,${outroAlpha})`;
+ctx.fillText('Welkin',SCREEN_W/2,420);
+ctx.font='14px "Microsoft YaHei"';ctx.fillStyle=`rgba(150,150,150,${outroAlpha})`;ctx.shadowBlur=0;
+ctx.fillText('PRODUCED BY',SCREEN_W/2,460);
+}
+let isVignette=(game.clock>=85.3&&game.clock<=101.3);
+let isFog=(game.clock>=210.0&&game.clock<=231.0);
+let isExtremeFog=(game.clock>=202.0&&game.clock<=203.3);
+if(isVignette||isFog||isExtremeFog){pauseBtn.style.opacity="0.4";pauseBtn.style.filter="brightness(0.4)"}
+else{pauseBtn.style.opacity="1";pauseBtn.style.filter="none"}
+if(isVignette){
+let vigAlpha=0;
+if(game.clock<86.3)vigAlpha=(game.clock-85.3);
+else if(game.clock>98.3)vigAlpha=(101.3-game.clock)/3.0;
+else vigAlpha=1.0;
+vigAlpha=Math.min(1.0,Math.max(0.0,vigAlpha))*0.95;
+if(vigAlpha>0){
+let vg=ctx.createRadialGradient(SCREEN_W/2,SCREEN_H/2,SCREEN_H*0.2,SCREEN_W/2,SCREEN_H/2,SCREEN_W*0.8);
+vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(0.4,'rgba(0,0,0,0)');vg.addColorStop(1,`rgba(0,0,0,${vigAlpha})`);
+ctx.fillStyle=vg;ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+}
+}
+if(isExtremeFog){
+let extProg=(game.clock-202.0)/1.3;
+let extAlpha=0;
+if(extProg<0.23)extAlpha=extProg/0.23;
+else if(extProg>0.77)extAlpha=(1.0-extProg)/0.23;
+else extAlpha=1.0;
+extAlpha=Math.max(0,Math.min(1,extAlpha))*0.99;
+if(extAlpha>0){
+let shrink=easeOutQuad(extProg)*350;
+let gt=ctx.createLinearGradient(0,0,0,shrink+50);gt.addColorStop(0,`rgba(0,0,0,${extAlpha})`);gt.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gt;ctx.fillRect(0,0,SCREEN_W,shrink+50);
+let gb=ctx.createLinearGradient(0,SCREEN_H,0,SCREEN_H-(shrink+50));gb.addColorStop(0,`rgba(0,0,0,${extAlpha})`);gb.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gb;ctx.fillRect(0,SCREEN_H-(shrink+50),SCREEN_W,shrink+50);
+let gl=ctx.createLinearGradient(0,0,shrink+50,0);gl.addColorStop(0,`rgba(0,0,0,${extAlpha})`);gl.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gl;ctx.fillRect(0,0,shrink+50,SCREEN_H);
+let gr=ctx.createLinearGradient(SCREEN_W,0,SCREEN_W-(shrink+50),0);gr.addColorStop(0,`rgba(0,0,0,${extAlpha})`);gr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gr;ctx.fillRect(SCREEN_W-(shrink+50),0,shrink+50,SCREEN_H);
+}
+}
+if(isFog){
+let fogAlpha=0;
+if(game.clock<211.5)fogAlpha=(game.clock-210.0)/1.5;
+else if(game.clock>229.5)fogAlpha=(231.0-game.clock)/1.5;
+else fogAlpha=1.0;
+fogAlpha=Math.min(1.0,Math.max(0.0,fogAlpha))*0.92;
+if(fogAlpha>0){
+let fogProgress=Math.min(1.0,Math.max(0.0,(game.clock-210.0)/21.0));
+let shrink=easeOutQuad(fogProgress)*115;
+let gt=ctx.createLinearGradient(0,0,0,shrink+50);gt.addColorStop(0,`rgba(0,0,0,${fogAlpha})`);gt.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gt;ctx.fillRect(0,0,SCREEN_W,shrink+50);
+let gb=ctx.createLinearGradient(0,SCREEN_H,0,SCREEN_H-(shrink+50));gb.addColorStop(0,`rgba(0,0,0,${fogAlpha})`);gb.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gb;ctx.fillRect(0,SCREEN_H-(shrink+50),SCREEN_W,shrink+50);
+let gl=ctx.createLinearGradient(0,0,shrink+50,0);gl.addColorStop(0,`rgba(0,0,0,${fogAlpha})`);gl.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gl;ctx.fillRect(0,0,shrink+50,SCREEN_H);
+let gr=ctx.createLinearGradient(SCREEN_W,0,SCREEN_W-(shrink+50),0);gr.addColorStop(0,`rgba(0,0,0,${fogAlpha})`);gr.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gr;ctx.fillRect(SCREEN_W-(shrink+50),0,shrink+50,SCREEN_H);
+}
+}
+if(game.clock<0){
+let cd=Math.ceil(-game.clock);
+if(cd>=1&&cd<=3){
+ctx.textAlign='center';ctx.font='bold 180px "Microsoft YaHei"';ctx.fillStyle='#ffe664';ctx.shadowBlur=30;ctx.shadowColor='#ffe664';
+ctx.fillText(cd,SCREEN_W/2,SCREEN_H/2+60);ctx.shadowBlur=0;
+}
+}
+ctx.restore();
 }
 
-function drawGame(dt) {
-    ctx.save();
-    if (game.screenShake > 0.1) {
-        ctx.translate((Math.random()-0.5)*game.screenShake, (Math.random()-0.5)*game.screenShake);
-    }
-    
-    let targetScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
-    displayScore = lerp(displayScore, targetScore, dt * 15); 
-    if (Math.abs(displayScore - targetScore) < 1) displayScore = targetScore;
-
-    let totalJudged = game.perfect + game.good + game.bad + game.miss;
-    let targetAcc = totalJudged === 0 ? 100.00 : ((game.perfect + game.good * 0.65) / totalJudged) * 100;
-    displayAcc = lerp(displayAcc, targetAcc, dt * 15);
-    
-    let bgGrad = ctx.createLinearGradient(0, 0, 0, SCREEN_H);
-    bgGrad.addColorStop(0, '#080c14'); bgGrad.addColorStop(1, '#020305');
-    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-
-    if (game.clock > 0) {
-        let waveOffset = (game.clock * 60) % 150;
-        for (let i = 0; i < 5; i++) {
-            let waveY = 80 + i * 130 + waveOffset;
-            ctx.strokeStyle = `rgba(30, 60, 100, ${0.1 + game.bpmPulse * 0.2})`;
-            ctx.lineWidth = 2 + game.bpmPulse * 2;
-            ctx.beginPath(); 
-            ctx.moveTo(0, waveY); ctx.lineTo(TRACK_X, waveY);
-            ctx.moveTo(TRACK_X + TRACK_W, waveY); ctx.lineTo(SCREEN_W, waveY);
-            ctx.stroke();
-        }
-    }
-
-    let trackGrad = ctx.createLinearGradient(TRACK_X, 0, TRACK_X + TRACK_W, 0);
-    trackGrad.addColorStop(0, 'rgba(20, 25, 38, 0.8)');
-    trackGrad.addColorStop(0.5, 'rgba(30, 38, 55, 0.9)');
-    trackGrad.addColorStop(1, 'rgba(20, 25, 38, 0.8)');
-    ctx.fillStyle = trackGrad; 
-    ctx.fillRect(TRACK_X, 0, TRACK_W, SCREEN_H);
-
-    ctx.lineWidth = 1 + game.bpmPulse * 2;
-    ctx.strokeStyle = `rgba(80, 150, 255, ${0.2 + game.bpmPulse * 0.4})`;
-    for (let i = 0; i <= LANE_COUNT; i++) {
-        let x = TRACK_X + i * LANE_W;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, SCREEN_H); ctx.stroke();
-    }
-
-    for (let i = 0; i < 4; i++) {
-        if (game.keyHold[i]) {
-            let keyGrad = ctx.createLinearGradient(0, JUDGE_Y, 0, SCREEN_H);
-            keyGrad.addColorStop(0, 'rgba(50, 150, 255, 0.6)');
-            keyGrad.addColorStop(1, 'rgba(50, 150, 255, 0)');
-            ctx.fillStyle = keyGrad;
-            ctx.fillRect(TRACK_X + i * LANE_W + 2, JUDGE_Y, LANE_W - 4, SCREEN_H - JUDGE_Y);
-        }
-    }
-
-    let glowW = 8 + game.judgeLineGlow * 20 + game.bpmPulse * 6;
-    let glowA = 0.5 + game.judgeLineGlow * 0.5;
-    ctx.fillStyle = `rgba(80, 180, 255, ${glowA})`;
-    ctx.fillRect(TRACK_X, JUDGE_Y - glowW/2, TRACK_W, glowW);
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 10; ctx.shadowColor = '#50c8ff';
-    ctx.fillRect(TRACK_X, JUDGE_Y - 2, TRACK_W, 4);
-    ctx.shadowBlur = 0; 
-
-    for (let n of game.notes) {
-        if (n.judged) continue;
-        let yPos = JUDGE_Y - (n.time - game.clock) * SCROLL_SPEED;
-        if (yPos < -NOTE_H*4 || yPos > SCREEN_H + NOTE_H*4) continue;
-
-        let progress = Math.max(0, Math.min(1, (yPos - (-NOTE_H)) / (JUDGE_Y - (-NOTE_H))));
-        let localP = Math.min(1, progress / 0.6);
-        let smoothP = easeOutQuad(localP);
-        
-        let startX = TRACK_X + n.startLane * LANE_W + LANE_W / 2;
-        let endX = TRACK_X + n.lane * LANE_W + LANE_W / 2;
-        let currentX = lerp(startX, endX, smoothP);
-
-        let w = LANE_W - 30, h = NOTE_H, x = currentX - w / 2;
-        let isFinal = Math.abs(n.time - FINAL_CHORD_TIME) < 0.05;
-        let alpha = Math.min(1, progress * 5);
-
-        if (isFinal) {
-            for (let t = 30; t > 0; t--) {
-                let tailY = yPos - t * 25;
-                if (tailY > SCREEN_H) continue;
-                ctx.fillStyle = t < 10 ? `rgba(180,230,255,${0.8 * alpha})` : (t < 20 ? `rgba(80,160,220,${0.6 * alpha})` : `rgba(20,60,120,${0.3 * alpha})`);
-                ctx.fillRect(x - t*2, tailY, w + t*4, h + 20);
-            }
-        } else {
-            for (let t = 3; t > 0; t--) {
-                let tailY = yPos - t * 15;
-                ctx.fillStyle = `rgba(50, 120, 200, ${(0.5 - t*0.15) * alpha})`;
-                ctx.fillRect(x + t*4, tailY, w - t*8, h);
-            }
-        }
-
-        ctx.fillStyle = isFinal ? `rgba(255,255,255,${alpha})` : `rgba(80,180,255,${alpha})`;
-        safeRoundRect(ctx, x, yPos - h/2, w, h, 8); 
-        ctx.fill();
-        
-        ctx.fillStyle = `rgba(255,255,255,${0.8 * alpha})`; 
-        ctx.fillRect(x + 4, yPos - h/2 + 3, w - 8, 4);
-        
-        if (n.is_chord) {
-            ctx.lineWidth = 3; ctx.strokeStyle = `rgba(255,220,0,${alpha})`;
-            safeRoundRect(ctx, x, yPos - h/2, w, h, 8); 
-            ctx.stroke();
-        }
-    }
-
-    for (let ef of game.effects) {
-        let progress = 1.0 - (ef.life / 0.4);
-        let easedProg = easeOutQuad(progress);
-        let size = 20 + easedProg * 80;
-        if (ef.isMulti) size = 30 + easedProg * 110;
-        else if (ef.isChord) size = 25 + easedProg * 95;
-
-        let alpha = 1.0 - progress;
-        let color = ef.type === 0 ? `rgba(255, 230, 100, ${alpha})` : (ef.type === 1 ? `rgba(100, 200, 255, ${alpha})` : `rgba(120, 120, 120, ${alpha})`);
-        
-        ctx.strokeStyle = color; 
-        ctx.lineWidth = 5 - progress * 3; 
-        ctx.shadowBlur = 15; ctx.shadowColor = color;
-        safeRoundRect(ctx, ef.x - size, ef.y - size/2, size*2, size, 10);
-        ctx.stroke();
-        if (ef.isChord) {
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
-            ctx.lineWidth = 2;
-            safeRoundRect(ctx, ef.x - size * 1.1, ef.y - size/2 * 1.1, size * 2.2, size * 1.1, 12);
-            ctx.stroke();
-        }
-        ctx.shadowBlur = 0;
-    }
-
-    if (game.flashAlpha > 0) { 
-        ctx.fillStyle = `rgba(255,255,255,${game.flashAlpha * 0.8})`; 
-        ctx.fillRect(0, 0, SCREEN_W, SCREEN_H); 
-    }
-
-    if (game.clock >= 0) {
-        let musicProg = Math.max(0, Math.min(1, (game.clock - MUSIC_DELAY) / SONG_DURATION));
-        let barX = TRACK_X;
-        let barY = SCREEN_H - 4; 
-        let barW = TRACK_W;
-        let barH = 4;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.fillRect(barX, barY, barW, barH);
-        let progGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-        progGrad.addColorStop(0, 'rgba(80, 200, 255, 0.8)');
-        progGrad.addColorStop(1, 'rgba(100, 220, 255, 1.0)');
-        ctx.fillStyle = progGrad;
-        ctx.fillRect(barX, barY, barW * musicProg, barH);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.fillRect(barX + barW * musicProg - 2, barY, 2, barH);
-    }
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 34px Consolas, sans-serif';
-    ctx.shadowBlur = 5; ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.fillText(Math.round(displayScore).toString().padStart(7, '0'), SCREEN_W - 25, 45);
-    
-    ctx.fillStyle = '#a0c0ff'; ctx.font = 'bold 20px Consolas, sans-serif';
-    ctx.fillText(displayAcc.toFixed(2) + '%', SCREEN_W - 25, 75);
-    ctx.shadowBlur = 0;
-
-    if (game.combo > 2) {
-        ctx.textAlign = 'center'; 
-        let comboText = game.combo.toString();
-        let comboSize = Math.floor(52 * game.comboScale);
-        ctx.font = `bold ${comboSize}px 'Segoe UI', sans-serif`;
-        let isAP = (game.good === 0 && game.bad === 0 && game.miss === 0);
-        let isFC = (game.miss === 0);
-        let textWidth = ctx.measureText(comboText).width;
-        let centerX = SCREEN_W / 2;
-        let textY = 70;
-        if (isAP) {
-            ctx.fillStyle = getAPGradient(centerX, textY, textWidth);
-            ctx.shadowColor = 'rgba(255, 255, 255, 0.8)'; 
-        } else if (isFC) {
-            ctx.fillStyle = getFCGradient(centerX, textY, textWidth);
-            ctx.shadowColor = 'rgba(100, 200, 255, 0.8)';
-        } else {
-            ctx.fillStyle = game.comboScale > 1.05 ? '#ffffff' : '#b4dcff';
-            ctx.shadowColor = '#50c8ff';
-        }
-        ctx.shadowBlur = 20; 
-        ctx.fillText(comboText, centerX, textY);
-        ctx.font = 'bold 16px "Microsoft YaHei"'; 
-        ctx.fillStyle = '#788cbe';
-        ctx.shadowBlur = 0;
-        ctx.fillText('C O M B O', centerX, 100);
-    }
-    
-    if (game.feedbackTimer > 0) {
-        let fbAlpha = Math.min(1, game.feedbackTimer * 4); 
-        ctx.textAlign = 'center'; 
-        ctx.font = 'bold 42px "Microsoft YaHei"';
-        ctx.fillStyle = game.feedbackType === 'P' ? `rgba(255,230,100,${fbAlpha})` : (game.feedbackType === 'G' ? `rgba(100,200,255,${fbAlpha})` : `rgba(150,150,150,${fbAlpha})`);
-        ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
-        ctx.fillText(game.feedback, SCREEN_W/2, JUDGE_Y - 130 - feedbackYOffset);
-        ctx.shadowBlur = 0;
-    }
-
-    if (game.clock > 239.5) {
-        let outroAlpha = Math.min(1, (game.clock - 239.5) * 2); 
-        ctx.textAlign = 'center'; 
-        ctx.font = 'bold 180px Impact, sans-serif'; 
-        ctx.fillStyle = `rgba(80, 200, 255, ${outroAlpha})`; 
-        ctx.shadowBlur = 30; ctx.shadowColor = `rgba(80, 200, 255, ${outroAlpha})`;
-        ctx.fillText('V.', SCREEN_W/2, 300);
-        ctx.font = 'bold 50px "Arial Black", sans-serif'; 
-        ctx.fillStyle = `rgba(220, 220, 220, ${outroAlpha})`; 
-        ctx.shadowBlur = 10; ctx.shadowColor = `rgba(255, 255, 255, ${outroAlpha})`;
-        ctx.fillText('Welkin', SCREEN_W/2, 420);
-        ctx.font = '14px "Microsoft YaHei"'; 
-        ctx.fillStyle = `rgba(150, 150, 150, ${outroAlpha})`; 
-        ctx.shadowBlur = 0;
-        ctx.fillText('PRODUCED BY', SCREEN_W/2, 460);
-    }
-
-    let isVignette = (game.clock >= 85.3 && game.clock <= 101.3);
-    let isFog = (game.clock >= 210.0 && game.clock <= 231.0);
-    let isExtremeFog = (game.clock >= 202.0 && game.clock <= 203.3); 
-    
-    if (isVignette || isFog || isExtremeFog) {
-        pauseBtn.style.opacity = "0.4";
-        pauseBtn.style.filter = "brightness(0.4)";
-    } else {
-        pauseBtn.style.opacity = "1";
-        pauseBtn.style.filter = "none";
-    }
-
-    if (isVignette) {
-        let vigAlpha = 0;
-        if (game.clock < 86.3) vigAlpha = (game.clock - 85.3); 
-        else if (game.clock > 98.3) vigAlpha = (101.3 - game.clock) / 3.0; 
-        else vigAlpha = 1.0;
-        vigAlpha = Math.min(1.0, Math.max(0.0, vigAlpha)) * 0.95; 
-        if (vigAlpha > 0) {
-            let vigGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, SCREEN_H * 0.2, SCREEN_W/2, SCREEN_H/2, SCREEN_W * 0.8);
-            vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
-            vigGrad.addColorStop(0.4, 'rgba(0,0,0,0)'); 
-            vigGrad.addColorStop(1, `rgba(0,0,0,${vigAlpha})`);
-            ctx.fillStyle = vigGrad;
-            ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-        }
-    }
-
-    if (isExtremeFog) {
-        let extProg = (game.clock - 202.0) / 1.3;
-        let extAlpha = 0;
-        if (extProg < 0.23) extAlpha = extProg / 0.23; 
-        else if (extProg > 0.77) extAlpha = (1.0 - extProg) / 0.23; 
-        else extAlpha = 1.0;
-        extAlpha = Math.max(0, Math.min(1, extAlpha)) * 0.99; 
-        if (extAlpha > 0) {
-            let shrink = easeOutQuad(extProg) * 350; 
-            let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
-            gradTop.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
-            gradTop.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradTop; ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
-            let gradBot = ctx.createLinearGradient(0, SCREEN_H, 0, SCREEN_H - (shrink + 50));
-            gradBot.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
-            gradBot.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradBot; ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
-            let gradLeft = ctx.createLinearGradient(0, 0, shrink + 50, 0);
-            gradLeft.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
-            gradLeft.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradLeft; ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
-            let gradRight = ctx.createLinearGradient(SCREEN_W, 0, SCREEN_W - (shrink + 50), 0);
-            gradRight.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
-            gradRight.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradRight; ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
-        }
-    }
-
-    if (isFog) {
-        let fogAlpha = 0;
-        if (game.clock < 211.5) fogAlpha = (game.clock - 210.0) / 1.5; 
-        else if (game.clock > 229.5) fogAlpha = (231.0 - game.clock) / 1.5; 
-        else fogAlpha = 1.0;
-        fogAlpha = Math.min(1.0, Math.max(0.0, fogAlpha)) * 0.92; 
-        if (fogAlpha > 0) {
-            let fogProgress = Math.min(1.0, Math.max(0.0, (game.clock - 210.0) / 21.0));
-            let shrink = easeOutQuad(fogProgress) * 115; 
-            let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
-            gradTop.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
-            gradTop.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradTop; ctx.fillRect(0, 0, SCREEN_W, shrink + 50);
-            let gradBot = ctx.createLinearGradient(0, SCREEN_H, 0, SCREEN_H - (shrink + 50));
-            gradBot.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
-            gradBot.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradBot; ctx.fillRect(0, SCREEN_H - (shrink + 50), SCREEN_W, shrink + 50);
-            let gradLeft = ctx.createLinearGradient(0, 0, shrink + 50, 0);
-            gradLeft.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
-            gradLeft.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradLeft; ctx.fillRect(0, 0, shrink + 50, SCREEN_H);
-            let gradRight = ctx.createLinearGradient(SCREEN_W, 0, SCREEN_W - (shrink + 50), 0);
-            gradRight.addColorStop(0, `rgba(0,0,0,${fogAlpha})`);
-            gradRight.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = gradRight; ctx.fillRect(SCREEN_W - (shrink + 50), 0, shrink + 50, SCREEN_H);
-        }
-    }
-
-    if (game.clock < 0) {
-        let cd = Math.ceil(-game.clock);
-        if (cd >= 1 && cd <= 3) {
-            ctx.textAlign = 'center'; 
-            ctx.font = 'bold 180px "Microsoft YaHei"'; 
-            ctx.fillStyle = '#ffe664'; 
-            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
-            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
-            ctx.shadowBlur = 0;
-        }
-    }
-    
-    ctx.restore();
-}
-
-function drawResult() {
-    ctx.clearRect(0, 0, SCREEN_W, SCREEN_H);
-    let bgGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, 100, SCREEN_W/2, SCREEN_H/2, SCREEN_W);
-    bgGrad.addColorStop(0, '#0a1525'); bgGrad.addColorStop(1, '#020305');
-    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-
-    let score = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
-    let totalJudged = game.perfect + game.good + game.bad + game.miss;
-    let acc = totalJudged === 0 ? 100.00 : ((game.perfect + game.good * 0.65) / totalJudged) * 100;
-    
-    ctx.textAlign = 'center'; 
-    ctx.fillStyle = '#a0c0ff'; 
-    ctx.font = 'bold 28px "Microsoft YaHei"'; 
-    ctx.fillText('RESULT', SCREEN_W/2, 90);
-    
-    ctx.font = 'bold 110px sans-serif'; 
-    let scoreStr = score.toString().padStart(7, '0');
-    let scoreWidth = ctx.measureText(scoreStr).width;
-    let centerX = SCREEN_W / 2;
-    if (game.perfect === game.notes.length) {
-        ctx.fillStyle = getAPGradient(centerX, 210, scoreWidth);
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-    } else if (game.miss === 0) {
-        ctx.fillStyle = getFCGradient(centerX, 210, scoreWidth);
-        ctx.shadowColor = 'rgba(100, 200, 255, 0.8)';
-    } else {
-        ctx.fillStyle = '#ffffff'; 
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
-    }
-    ctx.shadowBlur = 30; 
-    ctx.fillText(scoreStr, centerX, 210);
-    ctx.shadowBlur = 0;
-    
-    ctx.font = 'bold 32px monospace'; 
-    ctx.fillStyle = '#50c8ff'; 
-    ctx.fillText('ACC  ' + acc.toFixed(2) + '%', SCREEN_W/2, 260);
-
-    ctx.fillStyle = 'rgba(10, 20, 30, 0.7)';
-    safeRoundRect(ctx, SCREEN_W/2 - 200, 300, 400, 180, 15);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(80, 200, 255, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    ctx.textAlign = 'left'; ctx.font = 'bold 24px monospace';
-    ctx.fillStyle = '#b4ffb4'; ctx.fillText(`PERFECT: ${game.perfect}`, SCREEN_W/2 - 150, 340);
-    ctx.fillStyle = '#96c8ff'; ctx.fillText(`GOOD:    ${game.good}`, SCREEN_W/2 - 150, 380);
-    ctx.fillStyle = '#c89696'; ctx.fillText(`BAD:     ${game.bad}`, SCREEN_W/2 - 150, 420);
-    ctx.fillStyle = '#ff9696'; ctx.fillText(`MISS:    ${game.miss}`, SCREEN_W/2 - 150, 460);
-
-    if (game.perfect === game.notes.length) {
-        ctx.textAlign = 'center'; 
-        ctx.font = 'bold 80px Impact'; 
-        ctx.fillStyle = '#ffff64'; 
-        ctx.shadowBlur = 30; ctx.shadowColor = '#ffff64';
-        ctx.fillText("ALL PERFECT", SCREEN_W/2, 550);
-        ctx.shadowBlur = 0;
-    } else if (game.bad === 0 && game.miss === 0) {
-        ctx.textAlign = 'center'; 
-        ctx.font = 'bold 80px Impact'; 
-        ctx.fillStyle = '#64c8ff'; 
-        ctx.shadowBlur = 30; ctx.shadowColor = '#64c8ff';
-        ctx.fillText("FULL COMBO", SCREEN_W/2, 550);
-        ctx.shadowBlur = 0;
-    }
-
-    ctx.textAlign = 'center'; 
-    ctx.font = 'bold 30px sans-serif'; 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText('▲', SCREEN_W/2, resultButtonY - 5); 
-    ctx.font = '16px "Microsoft YaHei"'; 
-    ctx.fillStyle = '#aaa';
-    ctx.fillText('返回主界面', SCREEN_W/2, resultButtonY + 20);
+function drawResult(){
+ctx.clearRect(0,0,SCREEN_W,SCREEN_H);
+let bgGrad=ctx.createRadialGradient(SCREEN_W/2,SCREEN_H/2,100,SCREEN_W/2,SCREEN_H/2,SCREEN_W);
+bgGrad.addColorStop(0,'#0a1525');bgGrad.addColorStop(1,'#020305');
+ctx.fillStyle=bgGrad;ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+let score=Math.floor(900000*(game.weightSum/game.notes.length)+100000*(game.maxCombo/game.notes.length));
+let totalJudged=game.perfect+game.good+game.bad+game.miss;
+let acc=totalJudged===0?100.00:((game.perfect+game.good*0.65)/totalJudged)*100;
+ctx.textAlign='center';
+ctx.fillStyle='#a0c0ff';ctx.font='bold 28px "Microsoft YaHei"';
+ctx.fillText('RESULT',SCREEN_W/2,90);
+ctx.font='bold 110px sans-serif';
+let scoreStr=score.toString().padStart(7,'0');
+let scoreWidth=ctx.measureText(scoreStr).width;
+let centerX=SCREEN_W/2;
+if(game.perfect===game.notes.length){ctx.fillStyle=getAPGradient(centerX,210,scoreWidth);ctx.shadowColor='rgba(255,255,255,0.8)'}
+else if(game.miss===0){ctx.fillStyle=getFCGradient(centerX,210,scoreWidth);ctx.shadowColor='rgba(100,200,255,0.8)'}
+else{ctx.fillStyle='#ffffff';ctx.shadowColor='rgba(255,255,255,0.5)'}
+ctx.shadowBlur=30;
+ctx.fillText(scoreStr,centerX,210);ctx.shadowBlur=0;
+ctx.font='bold 32px monospace';ctx.fillStyle='#50c8ff';
+ctx.fillText('ACC  '+acc.toFixed(2)+'%',SCREEN_W/2,260);
+ctx.fillStyle='rgba(10,20,30,0.7)';
+safeRoundRect(ctx,SCREEN_W/2-200,300,400,180,15);ctx.fill();
+ctx.strokeStyle='rgba(80,200,255,0.3)';ctx.lineWidth=1;ctx.stroke();
+ctx.textAlign='left';ctx.font='bold 24px monospace';
+ctx.fillStyle='#b4ffb4';ctx.fillText(`PERFECT: ${game.perfect}`,SCREEN_W/2-150,340);
+ctx.fillStyle='#96c8ff';ctx.fillText(`GOOD:    ${game.good}`,SCREEN_W/2-150,380);
+ctx.fillStyle='#c89696';ctx.fillText(`BAD:     ${game.bad}`,SCREEN_W/2-150,420);
+ctx.fillStyle='#ff9696';ctx.fillText(`MISS:    ${game.miss}`,SCREEN_W/2-150,460);
+if(game.perfect===game.notes.length){ctx.textAlign='center';ctx.font='bold 80px Impact';ctx.fillStyle='#ffff64';ctx.shadowBlur=30;ctx.shadowColor='#ffff64';ctx.fillText("ALL PERFECT",SCREEN_W/2,550);ctx.shadowBlur=0}
+else if(game.bad===0&&game.miss===0){ctx.textAlign='center';ctx.font='bold 80px Impact';ctx.fillStyle='#64c8ff';ctx.shadowBlur=30;ctx.shadowColor='#64c8ff';ctx.fillText("FULL COMBO",SCREEN_W/2,550);ctx.shadowBlur=0}
+ctx.textAlign='center';ctx.font='bold 30px sans-serif';ctx.fillStyle='#ffffff';
+ctx.fillText('▲',SCREEN_W/2,resultButtonY-5);
+ctx.font='16px "Microsoft YaHei"';ctx.fillStyle='#aaa';
+ctx.fillText('返回主界面',SCREEN_W/2,resultButtonY+20);
 }
 </script>
 </body>
