@@ -219,7 +219,7 @@
             <!-- Nick 的帖子（替换成了 nick_avatar.jpg） -->
             <div class="im-post-item" onclick="openImDetail('nick')">
                 <img src="nick_avatar.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'%23a2d2ff\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%23fff\' font-size=\'18\' font-family=\'sans-serif\'>Nick</text></svg>'" class="im-avatar" alt="Nick" style="border-color: #a2d2ff;">
-                <div class="im-post-content">祝Welkin天天开心，永远不死</div>
+                <div class="im-post-content">这音游太好玩了，大家快来试试！</div>
                 <div class="im-post-likes"><span class="im-like-icon">👍</span>12</div>
             </div>
         </div>
@@ -271,7 +271,7 @@
                     </div>
                 </div>
                 <div class="im-detail-text">
-                    祝Welkin天天开心，永远不死
+                    这音游太好玩了，大家快来试试！
                 </div>
                 <button class="im-like-btn" onclick="alert('已点赞！')">
                     <span>👍</span> 12 点赞
@@ -369,9 +369,16 @@ function safeRoundRect(c, x, y, w, h, r) {
 let isGameLoopRunning = false; 
 let isPlaying = false;
 let clockAnchor = 0;
-let audioStarted = false;
-let audioUnlocked = false;
-let isAudioBroken = false; 
+
+// ========== 音频状态管理（重构：解决所有音乐 Bug） ==========
+let audioStarted = false;        // 音乐是否已启动
+let audioUnlocked = false;       // 音频是否已解锁（防重复 unlockAudio）
+let isAudioBroken = false;       // 是否彻底损坏（极少触发）
+let playPending = false;         // play() promise 是否 pending
+let playToken = 0;               // 版本号，作废旧 promise
+let audioSyncPending = false;    // 待同步 game.clock
+let lastPlayRetryTime = 0;       // 中途恢复防抖时间戳
+let audioFailCount = 0;          // 连续失败计数
 
 let pointerLanes = {}; 
 
@@ -599,18 +606,121 @@ function getFCGradient(x, y, width) {
     return g;
 }
 
+// ================= 音频核心函数 =================
+
 function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
     bgm.muted = true;
     const p = bgm.play();
     if (p && p.then) {
         p.then(() => {
-            bgm.pause();
-            bgm.currentTime = 0;
+            // 若用户还停留在菜单，则恢复静音播放的"解锁"状态
+            if (state === 'MENU') {
+                bgm.pause();
+                try { bgm.currentTime = 0; } catch(e) {}
+            }
             bgm.muted = false;
-            isAudioBroken = false;
         }).catch(() => { bgm.muted = false; });
+    } else {
+        bgm.muted = false;
     }
 }
+
+function startAudio() {
+    if (isAudioBroken) return false;
+    if (playPending) return false;
+    if (!bgm.paused) { audioSyncPending = true; return true; }
+    
+    bgm.muted = false;  // 确保不静音
+    
+    const myToken = ++playToken;
+    playPending = true;
+    let p;
+    try { p = bgm.play(); } catch (e) {
+        playPending = false;
+        console.warn('[Audio] play threw:', e);
+        return false;
+    }
+    if (p && p.then) {
+        p.then(() => {
+            if (myToken !== playToken) return;  // 已被 reset 作废
+            playPending = false;
+            audioSyncPending = true;
+            audioFailCount = 0;
+        }).catch(err => {
+            if (myToken !== playToken) return;
+            playPending = false;
+            const name = err && err.name;
+            if (name === 'NotAllowedError' || name === 'AbortError') {
+                // 用户交互/被 pause 打断：正常情况，不标记损坏
+                console.warn('[Audio] play deferred:', name);
+            } else {
+                console.warn('[Audio] play failed:', err);
+                audioFailCount++;
+                if (audioFailCount >= 5) {
+                    isAudioBroken = true;
+                    console.warn('[Audio] marked broken after 5 failures');
+                }
+            }
+        });
+    } else {
+        playPending = false;
+        audioSyncPending = true;
+    }
+    return true;
+}
+
+function resetAudioState() {
+    playToken++;              // 作废所有 pending promise
+    playPending = false;
+    audioStarted = false;
+    audioSyncPending = false;
+    isAudioBroken = false;
+    audioFailCount = 0;
+    lastPlayRetryTime = 0;
+    bgm.muted = false;
+    try { bgm.pause(); bgm.currentTime = 0; } catch(e) {}
+}
+
+function updateMusic() {
+    if (isAudioBroken) return;
+    // 未到达启动阈值前不处理（避免倒数前 2.6 秒反复触发）
+    if (!isPlaying && game.clock < MUSIC_DELAY - AUDIO_LEAD) return;
+    
+    // ===== 1. 启动 =====
+    if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD) {
+        try { bgm.currentTime = 0; } catch(e) {}
+        if (startAudio()) {
+            audioStarted = true;
+        }
+    }
+    
+    // ===== 2. 一次同步（用音乐时间反推 game.clock） =====
+    if (audioStarted && audioSyncPending && !bgm.paused && !playPending) {
+        audioSyncPending = false;
+        let musicTime = bgm.currentTime + MUSIC_DELAY;
+        let drift = musicTime - game.clock;
+        // 只在温和偏差内校正，避免视觉跳变
+        if (Math.abs(drift) > 0.03 && Math.abs(drift) < 0.35) {
+            clockAnchor = performance.now() - musicTime * 1000;
+            game.clock = musicTime;
+        }
+    }
+    
+    // ===== 3. 中途恢复（音频被系统打断） =====
+    if (audioStarted && bgm.paused && !playPending && isPlaying && game.clock < SONG_DURATION - 1) {
+        let now = performance.now();
+        if (now - lastPlayRetryTime > 1500) {  // 1.5s 防抖，避免堆积 promise
+            lastPlayRetryTime = now;
+            let target = Math.max(0, game.clock - MUSIC_DELAY);
+            try { bgm.currentTime = target; } catch(e) {}
+            startAudio();
+        }
+    }
+}
+
+// ================= 谱面生成 =================
 
 function AddNote(time, lane, startLane) {
     game.notes.push({ time: time + CHART_OFFSET, lane: lane, startLane: startLane, judged: false, is_chord: false, is_multi: false });
@@ -763,13 +873,12 @@ function resetGameData() {
     displayAcc = 100.00;
     feedbackYOffset = 0;
     isPlaying = false;
-    audioStarted = false;
-    isAudioBroken = false; 
     clockAnchor = 0;
     resumeCountdown = 0;
     pausedClock = 0;
     pausedAudioPos = 0;
     pointerLanes = {};
+    resetAudioState();   // ★ 统一重置音频状态
 }
 
 function transitionTo(nextState, callback) {
@@ -791,14 +900,9 @@ function startGame() {
     
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
-        bgm.pause();
-        try { bgm.currentTime = 0; } catch(e) {}
-        
-        resetGameData();
+        resetGameData();   // 内部会 resetAudioState（pause + currentTime=0）
         lastTime = performance.now();
-        
         state = 'GAME';
-        
         isGameLoopRunning = true;
         if (reqAnimId) cancelAnimationFrame(reqAnimId);
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -884,10 +988,7 @@ function resumeGame() {
     state = 'RESUMING';
     pauseModal.classList.remove('show');
     
-    if (!isAudioBroken) {
-        try { bgm.currentTime = pausedAudioPos; } catch(e) {}
-    }
-    
+    // ★ 不在这里碰 bgm，等 resumeCountdown 结束再恢复（避免提前 play 与 clockAnchor 错位）
     setTimeout(() => {
         state = 'GAME';
         resumeCountdown = 3.0;
@@ -902,12 +1003,9 @@ function restartGame() {
     state = 'RESUMING';
     pauseModal.classList.remove('show');
     
-    bgm.pause();
-    try { bgm.currentTime = 0; } catch(e) {}
-    
     setTimeout(() => {
         state = 'GAME';
-        resetGameData();
+        resetGameData();       // 内部 resetAudioState 会清空旧 promise token
         lastTime = performance.now();
         isGameLoopRunning = true;
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -923,7 +1021,7 @@ function quitGame() {
     
     transitionTo('MENU', () => {
         pauseBtn.style.display = 'none';
-        bgm.pause(); bgm.currentTime = 0;
+        resetAudioState();     // ★ 清空 pending promise
         showStartScreen();
     });
 }
@@ -1038,7 +1136,7 @@ function returnToMenu() {
 
     transitionTo('MENU', () => {
         pauseBtn.style.display = 'none';
-        bgm.pause(); bgm.currentTime = 0;
+        resetAudioState();   // ★ 清空 pending promise
         showStartScreen();
     });
 }
@@ -1049,18 +1147,18 @@ function gameLoop(time) {
     let dt = (time - lastTime) / 1000; lastTime = time;
     if (dt > 0.1) dt = 0.1; 
     
+    // ===== 恢复倒计时分支 =====
     if (resumeCountdown > 0) {
         resumeCountdown -= dt;
         if (resumeCountdown <= 0) {
             clockAnchor = performance.now() - pausedClock * 1000;
             game.clock = pausedClock;
             
-            if (audioStarted && !isAudioBroken) {
-                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
-            } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2 && !isAudioBroken) {
-                audioStarted = true;
-                bgm.currentTime = 0;
-                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+            if (!isAudioBroken && pausedClock >= MUSIC_DELAY - AUDIO_LEAD) {
+                // 用 game.clock 反推音乐位置，保证音画对齐
+                try { bgm.currentTime = Math.max(0, pausedClock - MUSIC_DELAY); } catch(e) {}
+                if (!audioStarted) audioStarted = true;
+                if (startAudio()) audioSyncPending = true;
             }
         }
         drawGame(dt);
@@ -1077,47 +1175,29 @@ function gameLoop(time) {
         return;
     }
 
+    // ===== 时钟推进 =====
     if (game.clock < 0) {
         game.clock += dt;
         if (game.clock >= 0) {
             game.clock = 0;
             clockAnchor = performance.now();
             isPlaying = true;
-            audioStarted = false;
-            if (bgm) { bgm.pause(); bgm.currentTime = 0; }
+            // ★ 不再 reset audioStarted / pause / currentTime
         }
     } else if (isPlaying) {
         game.clock = (performance.now() - clockAnchor) / 1000;
+    }
 
-        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && !isAudioBroken) {
-            audioStarted = true;
-            bgm.muted = false;
-            bgm.currentTime = 0;
-            const p = bgm.play();
-            if (p && p.catch) p.catch(e => {
-                console.warn("音乐播放失败，尝试延迟重试:", e);
-                setTimeout(() => {
-                    bgm.play().catch(() => { isAudioBroken = true; });
-                }, 100);
-            });
-        }
+    // ===== 音乐控制（独立于状态机，倒计时阶段也能预启动） =====
+    updateMusic();
 
-        if (audioStarted && bgm.paused && game.clock > 0.5 && game.clock < SONG_DURATION && !isAudioBroken) {
-            const p = bgm.play();
-            if (p && p.catch) {
-                p.catch(() => { 
-                    audioStarted = false; 
-                    isAudioBroken = true; 
-                });
-            }
-        }
-
+    // ===== 游戏逻辑（仅在正式游玩时） =====
+    if (isPlaying) {
         let phase = (game.clock % 0.4 + 0.4) % 0.4;
         game.bpmPulse = Math.pow(1.0 - phase / 0.4, 3); 
         
         if (game.screenShake > 0) game.screenShake = lerp(game.screenShake, 0, dt * 15);
         if (game.judgeLineGlow > 0) game.judgeLineGlow = lerp(game.judgeLineGlow, 0, dt * 8);
-        
         if (game.comboScale > 1) game.comboScale = lerp(game.comboScale, 1, dt * 10);
         if (game.flashAlpha > 0) game.flashAlpha = lerp(game.flashAlpha, 0, dt * 5);
         
