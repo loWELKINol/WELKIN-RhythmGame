@@ -12,6 +12,7 @@
             touch-action: none; user-select: none; -webkit-user-select: none; 
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; 
         }
+        /* 固定比例画布，绝不黑屏 */
         canvas { 
             display: block; 
             max-width: 100%; max-height: 100%; 
@@ -137,6 +138,21 @@
     el.addEventListener('error', () => { console.error('[Cover] 加载失败！请检查文件是否与 index.html 同目录且文件名正确'); el.style.display = 'none'; });
 })();
 
+// ====== 绝对安全的手写圆角矩形（替代原生 roundRect） ======
+function safeRoundRect(c, x, y, w, h, r) {
+    if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h) || isNaN(r)) return;
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+}
+// ========================================================
+
 let isGameLoopRunning = false; 
 let isPlaying = false;
 let clockAnchor = 0;
@@ -234,7 +250,7 @@ const pauseModal = document.getElementById('pauseModal');
 const transitionMask = document.getElementById('transition-mask');
 const startScreen = document.getElementById('start-screen');
 
-// ====== 恢复固定分辨率 ======
+// ====== 固定分辨率 ======
 const SCREEN_W = 800;
 const SCREEN_H = 600;
 const LANE_COUNT = 4;
@@ -281,7 +297,6 @@ resize();
 // ================= 颜色渐变辅助函数 =================
 function getAPGradient(x, y, width) {
     let w = width || 100;
-    if (isNaN(w) || !isFinite(w)) w = 100;
     let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
     g.addColorStop(0, '#ff4d4d');
     g.addColorStop(0.2, '#ffcc00');
@@ -294,7 +309,6 @@ function getAPGradient(x, y, width) {
 
 function getFCGradient(x, y, width) {
     let w = width || 100;
-    if (isNaN(w) || !isFinite(w)) w = 100;
     let g = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y);
     g.addColorStop(0, '#b464ff');
     g.addColorStop(1, '#64c8ff');
@@ -690,111 +704,117 @@ function returnToMenu() {
     });
 }
 
+// ======= 终极防御：主循环包裹 try-catch =======
 function gameLoop(time) {
     if (!isGameLoopRunning || state !== 'GAME') return;
     
-    let dt = (time - lastTime) / 1000; lastTime = time;
-    if (isNaN(dt) || !isFinite(dt)) dt = 0;
-    if (dt > 0.1) dt = 0.1; 
-    
-    if (resumeCountdown > 0) {
-        resumeCountdown -= dt;
-        if (resumeCountdown <= 0) {
-            clockAnchor = performance.now() - pausedClock * 1000;
-            game.clock = pausedClock;
-            
-            if (audioStarted) {
-                try { bgm.currentTime = pausedAudioPos; } catch(e) {}
-                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
-            } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
-                audioStarted = true;
-                bgm.currentTime = 0;
-                bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+    try {
+        let dt = (time - lastTime) / 1000; lastTime = time;
+        if (isNaN(dt) || !isFinite(dt)) dt = 0;
+        if (dt > 0.1) dt = 0.1; 
+        
+        if (resumeCountdown > 0) {
+            resumeCountdown -= dt;
+            if (resumeCountdown <= 0) {
+                clockAnchor = performance.now() - pausedClock * 1000;
+                game.clock = pausedClock;
+                
+                if (audioStarted) {
+                    try { bgm.currentTime = pausedAudioPos; } catch(e) {}
+                    bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+                } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
+                    audioStarted = true;
+                    bgm.currentTime = 0;
+                    bgm.play().catch(e => console.warn("恢复音乐失败:", e));
+                }
             }
-        }
-        drawGame(dt);
-        let cd = Math.ceil(resumeCountdown);
-        if (cd >= 1 && cd <= 3) {
-            ctx.textAlign = 'center'; 
-            ctx.font = 'bold 180px "Microsoft YaHei"'; 
-            ctx.fillStyle = '#ffe664'; 
-            ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
-            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
-            ctx.shadowBlur = 0;
-        }
-        reqAnimId = requestAnimationFrame(gameLoop);
-        return;
-    }
-
-    if (game.clock < 0) {
-        game.clock += dt;
-        if (game.clock >= 0) {
-            game.clock = 0;
-            clockAnchor = performance.now();
-            isPlaying = true;
-            audioStarted = false;
-            if (bgm) { bgm.pause(); bgm.currentTime = 0; }
-        }
-    } else if (isPlaying) {
-        game.clock = (performance.now() - clockAnchor) / 1000;
-        if (isNaN(game.clock)) game.clock = 0;
-
-        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
-            audioStarted = true;
-            bgm.muted = false;
-            bgm.currentTime = 0;
-            const p = bgm.play();
-            if (p && p.catch) p.catch(e => {
-                console.warn("音乐播放失败:", e);
-                audioStarted = false;
-            });
-        }
-
-        let phase = (game.clock % 0.4 + 0.4) % 0.4;
-        game.bpmPulse = Math.pow(1.0 - phase / 0.4, 3); 
-        
-        if (game.screenShake > 0) game.screenShake = lerp(game.screenShake, 0, dt * 15);
-        if (game.judgeLineGlow > 0) game.judgeLineGlow = lerp(game.judgeLineGlow, 0, dt * 8);
-        
-        if (game.comboScale > 1) game.comboScale = lerp(game.comboScale, 1, dt * 10);
-        if (game.flashAlpha > 0) game.flashAlpha = lerp(game.flashAlpha, 0, dt * 5);
-        
-        if (game.feedbackTimer > 0) {
-            game.feedbackTimer -= dt;
-            feedbackYOffset += dt * 50; 
-        }
-
-        for (let i = game.effects.length - 1; i >= 0; i--) { 
-            game.effects[i].life -= dt; 
-            if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
-        }
-
-        for (let n of game.notes) { 
-            if (!n.judged && game.clock > n.time + BAD_WINDOW) { 
-                n.judged = true; game.miss++; game.combo = 0; 
-                game.feedback = "MISS"; game.feedbackType = 'M'; 
-                game.feedbackTimer = 0.6; feedbackYOffset = 0; 
-            } 
-        }
-
-        if (game.clock > SONG_DURATION + MUSIC_DELAY) {
-            bgm.pause(); state = 'RESULT';
-            isGameLoopRunning = false;
-            pauseBtn.style.display = 'none';
-            
-            let finalScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
-            if (currentUser) {
-                const bestScoreKey = 'rhythm_best_' + currentUser.name;
-                const oldBest = parseInt(localStorage.getItem(bestScoreKey) || '0');
-                if (finalScore > oldBest) localStorage.setItem(bestScoreKey, finalScore.toString());
-                updateHighScoreUI();
+            drawGame(dt);
+            let cd = Math.ceil(resumeCountdown);
+            if (cd >= 1 && cd <= 3) {
+                ctx.textAlign = 'center'; 
+                ctx.font = 'bold 180px "Microsoft YaHei"'; 
+                ctx.fillStyle = '#ffe664'; 
+                ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
+                ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
+                ctx.shadowBlur = 0;
             }
-            drawResult();
+            reqAnimId = requestAnimationFrame(gameLoop);
             return;
         }
-    }
 
-    drawGame(dt);
+        if (game.clock < 0) {
+            game.clock += dt;
+            if (game.clock >= 0) {
+                game.clock = 0;
+                clockAnchor = performance.now();
+                isPlaying = true;
+                audioStarted = false;
+                if (bgm) { bgm.pause(); bgm.currentTime = 0; }
+            }
+        } else if (isPlaying) {
+            game.clock = (performance.now() - clockAnchor) / 1000;
+            if (isNaN(game.clock)) game.clock = 0;
+
+            if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
+                audioStarted = true;
+                bgm.muted = false;
+                bgm.currentTime = 0;
+                const p = bgm.play();
+                if (p && p.catch) p.catch(e => {
+                    console.warn("音乐播放失败:", e);
+                    audioStarted = false;
+                });
+            }
+
+            let phase = (game.clock % 0.4 + 0.4) % 0.4;
+            game.bpmPulse = Math.pow(1.0 - phase / 0.4, 3); 
+            
+            if (game.screenShake > 0) game.screenShake = lerp(game.screenShake, 0, dt * 15);
+            if (game.judgeLineGlow > 0) game.judgeLineGlow = lerp(game.judgeLineGlow, 0, dt * 8);
+            
+            if (game.comboScale > 1) game.comboScale = lerp(game.comboScale, 1, dt * 10);
+            if (game.flashAlpha > 0) game.flashAlpha = lerp(game.flashAlpha, 0, dt * 5);
+            
+            if (game.feedbackTimer > 0) {
+                game.feedbackTimer -= dt;
+                feedbackYOffset += dt * 50; 
+            }
+
+            for (let i = game.effects.length - 1; i >= 0; i--) { 
+                game.effects[i].life -= dt; 
+                if (game.effects[i].life <= 0) game.effects.splice(i, 1); 
+            }
+
+            for (let n of game.notes) { 
+                if (!n.judged && game.clock > n.time + BAD_WINDOW) { 
+                    n.judged = true; game.miss++; game.combo = 0; 
+                    game.feedback = "MISS"; game.feedbackType = 'M'; 
+                    game.feedbackTimer = 0.6; feedbackYOffset = 0; 
+                } 
+            }
+
+            if (game.clock > SONG_DURATION + MUSIC_DELAY) {
+                bgm.pause(); state = 'RESULT';
+                isGameLoopRunning = false;
+                pauseBtn.style.display = 'none';
+                
+                let finalScore = Math.floor(900000 * (game.weightSum / game.notes.length) + 100000 * (game.maxCombo / game.notes.length));
+                if (currentUser) {
+                    const bestScoreKey = 'rhythm_best_' + currentUser.name;
+                    const oldBest = parseInt(localStorage.getItem(bestScoreKey) || '0');
+                    if (finalScore > oldBest) localStorage.setItem(bestScoreKey, finalScore.toString());
+                    updateHighScoreUI();
+                }
+                drawResult();
+                return;
+            }
+        }
+
+        drawGame(dt);
+    } catch (err) {
+        console.error("Render error (safely caught):", err);
+    }
+    
     reqAnimId = requestAnimationFrame(gameLoop);
 }
 
@@ -899,14 +919,14 @@ function drawGame(dt) {
         }
 
         ctx.fillStyle = isFinal ? `rgba(255,255,255,${alpha})` : `rgba(80,180,255,${alpha})`;
-        ctx.beginPath(); ctx.roundRect(x, yPos - h/2, w, h, 8); ctx.fill();
+        safeRoundRect(ctx, x, yPos - h/2, w, h, 8); ctx.fill();
         
         ctx.fillStyle = `rgba(255,255,255,${0.8 * alpha})`; 
         ctx.fillRect(x + 4, yPos - h/2 + 3, w - 8, 4);
         
         if (n.is_chord) {
             ctx.lineWidth = 3; ctx.strokeStyle = `rgba(255,220,0,${alpha})`;
-            ctx.beginPath(); ctx.roundRect(x, yPos - h/2, w, h, 8); ctx.stroke();
+            safeRoundRect(ctx, x, yPos - h/2, w, h, 8); ctx.stroke();
         }
     }
 
@@ -924,15 +944,13 @@ function drawGame(dt) {
         ctx.strokeStyle = color; 
         ctx.lineWidth = 5 - progress * 3; 
         ctx.shadowBlur = 15; ctx.shadowColor = color;
-        ctx.beginPath();
-        ctx.roundRect(ef.x - size, ef.y - size/2, size*2, size, 10);
+        safeRoundRect(ctx, ef.x - size, ef.y - size/2, size*2, size, 10);
         ctx.stroke();
         
         if (ef.isChord) {
             ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
             ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.roundRect(ef.x - size * 1.1, ef.y - size/2 * 1.1, size * 2.2, size * 1.1, 12);
+            safeRoundRect(ctx, ef.x - size * 1.1, ef.y - size/2 * 1.1, size * 2.2, size * 1.1, 12);
             ctx.stroke();
         }
         ctx.shadowBlur = 0;
@@ -983,6 +1001,7 @@ function drawGame(dt) {
         let isFC = (game.miss === 0);
         
         let textWidth = ctx.measureText(comboText).width;
+        if (isNaN(textWidth) || textWidth <= 0) textWidth = 100;
         let centerX = SCREEN_W / 2;
         let textY = 70;
         
@@ -1156,8 +1175,7 @@ function drawResult() {
     ctx.fillText('ACC  ' + acc.toFixed(2) + '%', SCREEN_W/2, 260);
 
     ctx.fillStyle = 'rgba(10, 20, 30, 0.7)';
-    ctx.beginPath();
-    ctx.roundRect(SCREEN_W/2 - 200, 300, 400, 180, 15);
+    safeRoundRect(ctx, SCREEN_W/2 - 200, 300, 400, 180, 15);
     ctx.fill();
     ctx.strokeStyle = 'rgba(80, 200, 255, 0.3)';
     ctx.lineWidth = 1;
