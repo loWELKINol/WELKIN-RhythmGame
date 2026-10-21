@@ -10,6 +10,7 @@
             background-color: #05070a; overflow: hidden; 
             display: flex; justify-content: center; align-items: center; 
             touch-action: none; user-select: none; -webkit-user-select: none; 
+            overscroll-behavior: none;
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; 
         }
         canvas { 
@@ -71,6 +72,115 @@
         @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
         .menu-anim { animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
+
+        /* ================= iM 系统样式 ================= */
+        #imBtn {
+            position: absolute; top: 90px; left: 20px;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
+            border: 2px solid #50c8ff;
+            box-shadow: 0 0 15px rgba(80, 200, 255, 0.6), inset 0 0 10px rgba(80, 200, 255, 0.4);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 20;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slideUpFade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; animation-delay: 0.15s; opacity: 0;
+        }
+        #imBtn:hover { transform: scale(1.1); box-shadow: 0 0 25px rgba(80, 200, 255, 0.9), inset 0 0 15px rgba(80, 200, 255, 0.6); }
+        #imBtn:active { transform: scale(0.95); }
+        #imBtn .im-text {
+            color: #fff; font-size: 24px; font-family: 'Arial Black', sans-serif;
+            font-style: italic; text-shadow: 0 0 10px #50c8ff; letter-spacing: -1px;
+        }
+        
+        #im-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #030810; z-index: 200; color: #fff;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            overflow: hidden; flex-direction: column;
+        }
+
+        /* 动态科技背景 */
+        .im-bg {
+            position: absolute; top: 0; left: 0; width: 200%; height: 200%;
+            background-image: 
+                linear-gradient(rgba(0, 200, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 200, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: bgMove 20s linear infinite;
+            z-index: 0; pointer-events: none;
+        }
+        @keyframes bgMove { 0% { transform: translate(0, 0); } 100% { transform: translate(-40px, -40px); } }
+        .im-glow {
+            position: absolute; top: 50%; left: 50%; width: 150%; height: 150%;
+            background: radial-gradient(circle, rgba(0, 100, 255, 0.15) 0%, transparent 60%);
+            transform: translate(-50%, -50%); z-index: 0; pointer-events: none;
+            animation: glowPulse 4s infinite alternate;
+        }
+        @keyframes glowPulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* 顶栏 */
+        .im-topbar {
+            position: relative; z-index: 10; height: 60px; display: flex; align-items: center;
+            padding: 0 20px; background: rgba(0, 15, 30, 0.8); border-bottom: 1px solid rgba(80, 200, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        .im-back-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.6);
+            background: transparent; color: #fff; font-size: 20px; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .im-back-btn:hover { background: rgba(255,255,255,0.1); }
+        .im-title { font-size: 20px; margin-left: 20px; letter-spacing: 2px; font-weight: bold; color: #50c8ff; text-shadow: 0 0 10px rgba(80,200,255,0.5); }
+
+        /* 列表视图 */
+        #im-list-view {
+            position: relative; z-index: 10; flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        .im-post-item {
+            background: rgba(10, 25, 45, 0.6); border: 1px solid rgba(80, 200, 255, 0.15);
+            border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px;
+            cursor: pointer; transition: all 0.2s; backdrop-filter: blur(5px);
+        }
+        .im-post-item:hover { background: rgba(20, 40, 65, 0.8); border-color: rgba(80, 200, 255, 0.4); transform: translateY(-2px); }
+        .im-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #50c8ff; }
+        .im-post-content { flex: 1; font-size: 15px; color: #ddd; line-height: 1.4; }
+        .im-post-likes { display: flex; flex-direction: column; align-items: center; color: #50c8ff; font-size: 12px; }
+        .im-like-icon { font-size: 18px; margin-bottom: 2px; }
+
+        /* 详情视图 */
+        #im-detail-view {
+            position: relative; z-index: 10; flex: 1; overflow-y: auto; padding: 20px; display: none;
+        }
+        .im-detail-card {
+            background: rgba(10, 25, 45, 0.7); border: 1px solid rgba(80, 200, 255, 0.2);
+            border-radius: 16px; padding: 25px; backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .im-detail-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+        .im-detail-avatar { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #50c8ff; box-shadow: 0 0 15px rgba(80,200,255,0.4); }
+        .im-detail-name { font-size: 22px; font-weight: bold; color: #fff; }
+        .im-detail-text { font-size: 18px; line-height: 1.6; color: #e0e0e0; margin-bottom: 20px; letter-spacing: 1px;}
+        .im-like-btn {
+            display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+            background: rgba(80, 200, 255, 0.1); border: 1px solid #50c8ff; border-radius: 20px;
+            color: #50c8ff; font-size: 16px; cursor: pointer; transition: all 0.2s;
+        }
+        .im-like-btn:hover { background: rgba(80, 200, 255, 0.2); }
+        .im-like-btn:active { transform: scale(0.95); }
+        .im-like-btn.liked { background: #50c8ff; color: #000; font-weight: bold; }
+
+        /* 评论区 */
+        .im-comments { margin-top: 30px; }
+        .im-comment { display: flex; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; }
+        .im-comment-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .im-comment-content { flex: 1; }
+        .im-comment-name { font-size: 14px; color: #aaa; margin-bottom: 5px; }
+        .im-comment-text { font-size: 15px; color: #ddd; line-height: 1.5; }
+        
+        /* 隐藏滚动条 */
+        #im-list-view::-webkit-scrollbar, #im-detail-view::-webkit-scrollbar { width: 6px; }
+        #im-list-view::-webkit-scrollbar-thumb, #im-detail-view::-webkit-scrollbar-thumb { background: rgba(80,200,255,0.3); border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -79,6 +189,60 @@
     <div id="transition-mask"></div>
 
     <div id="pauseBtn">⏸</div>
+
+    <!-- iM 系统界面 -->
+    <div id="im-screen">
+        <div class="im-bg"></div>
+        <div class="im-glow"></div>
+        
+        <div class="im-topbar">
+            <button class="im-back-btn" id="imBackBtn" onclick="handleImBack()">←</button>
+            <div class="im-title" id="imTitle">iM SYSTEM</div>
+        </div>
+
+        <!-- 列表视图 -->
+        <div id="im-list-view">
+            <!-- 真实帖子 -->
+            <div class="im-post-item" onclick="openImDetail()">
+                <!-- 默认科技风头像，如果你本地有 avatar_im.jpg 会自动覆盖 -->
+                <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><circle cx=\'25\' cy=\'25\' r=\'25\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'2\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'20\' font-family=\'sans-serif\'>W</text></svg>'" class="im-avatar" alt="Me">
+                <div class="im-post-content">大家好！欢迎来到我制作的小音游，以后会加油更新...</div>
+                <div class="im-post-likes"><span class="im-like-icon">👍</span><span id="listLikeCount">0</span></div>
+            </div>
+        </div>
+
+        <!-- 详情视图 -->
+        <div id="im-detail-view">
+            <div class="im-detail-card">
+                <div class="im-detail-header">
+                    <img src="avatar_im.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'70\' height=\'70\'><circle cx=\'35\' cy=\'35\' r=\'35\' fill=\'%230a1525\' stroke=\'%2350c8ff\' stroke-width=\'3\'/><text x=\'50%\' y=\'55%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2350c8ff\' font-size=\'28\' font-family=\'sans-serif\'>W</text></svg>'" class="im-detail-avatar">
+                    <div>
+                        <div class="im-detail-name">WELKIN (Creator)</div>
+                        <div style="font-size: 12px; color: #888;">刚刚发布 · 所有人可见</div>
+                    </div>
+                </div>
+                <div class="im-detail-text">
+                    大家好！欢迎来到我制作的小音游，以后会加油更新，希望大家多多支持！该网址可以电脑打开游玩，按键控制是cvbn键，对应四个轨道！谢谢大家！
+                </div>
+                <button class="im-like-btn" id="likeBtn" onclick="doImLike(event)">
+                    <span>👍</span> <span id="detailLikeCount">0</span> 点赞
+                </button>
+                
+                <!-- 评论区 -->
+                <div class="im-comments">
+                    <div class="im-comment">
+                        <!-- 用 HTML/CSS 画的粉色猫猫头像 -->
+                        <div class="im-comment-avatar" style="background: #ffb6c1; display: flex; justify-content: center; align-items: center; font-size: 24px; border: 2px solid #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.5);">🐱</div>
+                        <div class="im-comment-content">
+                            <div class="im-comment-name">NEKO</div>
+                            <div class="im-comment-text">好耶！</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- iM 系统结束 -->
 
     <div id="loginModal" class="modal" onclick="event.stopPropagation()">
         <div class="modal-content-wrapper">
@@ -113,6 +277,11 @@
             <img id="userAvatarDisplay" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #50c8ff; margin-right: 12px; background:#333;">
             <span id="userNameDisplay" style="font-size: 18px; color: white; font-weight: bold; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></span>
             <button class="switch-btn" onclick="switchUser(event)">换号</button>
+        </div>
+
+        <!-- iM 入口按钮 -->
+        <div id="imBtn" onclick="openIM(event)">
+            <span class="im-text">iM</span>
         </div>
 
         <div id="highScoreDisplay" class="menu-anim" style="animation-delay: 0.2s; position: absolute; bottom: 30px; left: 30px; background: rgba(10, 15, 25, 0.6); padding: 15px 25px; border-radius: 12px; border-left: 4px solid #ffe664; z-index: 20; backdrop-filter: blur(10px); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
@@ -158,13 +327,69 @@ let audioStarted = false;
 let audioUnlocked = false;
 let lastLaneHitTime = [0, 0, 0, 0];
 
-// 暂停/恢复快照
 let resumeCountdown = 0;
 let pausedClock = 0;
 let pausedAudioPos = 0;
 
 let currentUser = null;
 let tempAvatarBase64 = '';
+
+// ================= iM 系统逻辑 =================
+let imLiked = false;
+const baseLikes = 0;
+
+function updateImLikesUI() {
+    let addedLikes = parseInt(localStorage.getItem('rhythm_im_likes') || '0');
+    let total = baseLikes + addedLikes;
+    document.getElementById('listLikeCount').innerText = total;
+    document.getElementById('detailLikeCount').innerText = total;
+}
+
+function openIM(e) {
+    if(e) { e.stopPropagation(); e.preventDefault(); }
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('im-screen').style.display = 'flex';
+    document.getElementById('im-list-view').style.display = 'flex';
+    document.getElementById('im-detail-view').style.display = 'none';
+    document.getElementById('imTitle').innerText = 'iM SYSTEM';
+    updateImLikesUI();
+}
+
+function handleImBack() {
+    const listView = document.getElementById('im-list-view');
+    const detailView = document.getElementById('im-detail-view');
+    if (detailView.style.display === 'block') {
+        detailView.style.display = 'none';
+        listView.style.display = 'flex';
+        document.getElementById('imTitle').innerText = 'iM SYSTEM';
+    } else {
+        document.getElementById('im-screen').style.display = 'none';
+        document.getElementById('start-screen').style.display = 'block';
+        document.getElementById('imBtn').style.animation = 'none';
+        document.getElementById('imBtn').offsetHeight; 
+        document.getElementById('imBtn').style.animation = null;
+    }
+}
+
+function openImDetail() {
+    document.getElementById('im-list-view').style.display = 'none';
+    document.getElementById('im-detail-view').style.display = 'block';
+    document.getElementById('imTitle').innerText = 'iM POST';
+}
+
+function doImLike(e) {
+    if(e) e.stopPropagation();
+    let addedLikes = parseInt(localStorage.getItem('rhythm_im_likes') || '0');
+    addedLikes++; 
+    localStorage.setItem('rhythm_im_likes', addedLikes);
+    
+    const btn = document.getElementById('likeBtn');
+    btn.classList.add('liked');
+    setTimeout(() => btn.classList.remove('liked'), 200);
+    
+    updateImLikesUI();
+}
+// ==============================================
 
 function updateHighScoreUI() {
     if (!currentUser) return;
@@ -195,6 +420,14 @@ function showStartScreen() {
         el.offsetHeight; 
         el.style.animation = null; 
     });
+    
+    const imBtn = document.getElementById('imBtn');
+    if(imBtn) {
+        imBtn.style.animation = 'none';
+        imBtn.offsetHeight;
+        imBtn.style.animation = null;
+    }
+
     document.getElementById('start-screen').style.display = 'block';
     state = 'MENU';
 }
@@ -310,7 +543,6 @@ function getFCGradient(x, y, width) {
     g.addColorStop(1, '#64c8ff');
     return g;
 }
-// ====================================================
 
 function unlockAudio() {
     bgm.muted = true;
@@ -338,16 +570,13 @@ function generateBeatmap() {
     for (i = 0; i < 27; i++) { t = 15.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
     for (i = 0; i < 8; i++) { t = 27.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else { AddNote(t, 1, 1); AddNote(t, 2, 2); } }
     
-    // 恢复 8 组双押（最后一组是 32.6 秒的双押）
     for (i = 0; i < 8; i++) { t = 30.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t, 2, 2); } else { AddNote(t, 1, 1); AddNote(t, 3, 3); } }
     
-    // 32.8 秒四押（AddNote 原始 33.0 + CHART_OFFSET = 判定 32.8）
     AddNote(33.0, 0, 0); AddNote(33.0, 1, 1); AddNote(33.0, 2, 2); AddNote(33.0, 3, 3);
     
     for (i = 0; i < 25; i++) { t = 34.0 + i * 0.4; if (i % 4 == 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); } else if (i % 2 == 0) { AddNote(t, 1, 1); AddNote(t, 2, 2); } else { AddNote(t, (i * 3) % 4, (i * 3) % 4); } }
     for (i = 0; i < 35; i++) { t = 45.0 + i * 0.4; if (i % 3 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else if (i % 3 == 1) { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } else { AddNote(t, 0, 0); AddNote(t + 0.2, 3, 3); } }
     
-    // 59.0 ~ 69.2 双押段变难
     for (i = 0; i < 25; i++) { 
         t = 59.0 + i * 0.4; 
         if (i < 12) {
@@ -370,7 +599,6 @@ function generateBeatmap() {
     for (i = 0; i < 60; i++) { t = 91.0 + i * 0.1; AddNote(t, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
     AddNote(97.0, 0, 0); AddNote(97.0, 3, 3); AddNote(97.4, 1, 1); AddNote(97.8, 2, 2); 
     
-    // 98.0 ~ 110.0 Y配置的镜像段
     for (i = 0; i < 30; i++) { 
         t = 98.0 + i * 0.4; 
         if (i < 15) {
@@ -388,7 +616,6 @@ function generateBeatmap() {
     for (i = 0; i < 27; i++) { t = 137.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); } else { AddNote(t, 3, 3); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.3, 0, 0); } }
     AddNote(148.4, 1, 1); AddNote(148.8, 2, 2); 
     
-    // 148.8 ~ 160.4 段加料
     for (i = 0; i < 30; i++) { 
         t = 149.0 + i * 0.4; 
         if (i % 4 == 0) { 
@@ -403,7 +630,6 @@ function generateBeatmap() {
         }
     }
     
-    // 160.8 ~ 170.6 段加料
     for (i = 0; i < 25; i++) { 
         t = 161.0 + i * 0.4; 
         if (i % 3 == 0) { 
@@ -421,21 +647,17 @@ function generateBeatmap() {
     for (i = 0; i < 7; i++) { t = 171.0 + i * 0.4; AddNote(t, (i % 2 == 0) ? 0 : 3, (i % 2 == 0) ? 0 : 3); AddNote(t + 0.2, (i % 2 == 0) ? 1 : 2, (i % 2 == 0) ? 1 : 2); }
     AddNote(174.0, 0, 0); AddNote(174.4, 3, 3); AddNote(174.8, 1, 1); 
     
-    // ================= 2:55 ~ 3:10 (175.0s ~ 190.0s) 高密度加料，每5秒切换配置 =================
-    // 175.0 ~ 179.8 (5秒切换1)：错位双押 + 后半拍单键
     for (i = 0; i < 12; i++) {
         t = 175.0 + i * 0.4;
         if (i % 2 === 0) { AddNote(t, 0, 0); AddNote(t, 3, 3); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 2, 2); }
         else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 3, 3); }
     }
-    // 180.0 ~ 184.8 (5秒切换2)：密集三押
     for (i = 0; i < 12; i++) {
         t = 180.0 + i * 0.4;
         if (i % 3 === 0) { AddNote(t, 0, 0); AddNote(t, 1, 1); AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); }
         else if (i % 3 === 1) { AddNote(t, 0, 0); AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); AddNote(t + 0.2, 3, 3); }
         else { AddNote(t, 1, 1); AddNote(t, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.2, 3, 3); }
     }
-    // 185.0 ~ 189.8 (5秒切换3)：16分极速交互
     for (i = 0; i < 12; i++) {
         t = 185.0 + i * 0.4;
         if (i % 4 === 0) { AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
@@ -443,16 +665,13 @@ function generateBeatmap() {
         else if (i % 4 === 2) { AddNote(t, 1, 1); AddNote(t + 0.1, 2, 2); AddNote(t + 0.2, 0, 0); AddNote(t + 0.3, 3, 3); }
         else { AddNote(t, 2, 2); AddNote(t + 0.2, 1, 1); }
     }
-    // ==================================================================================
-
-    // 190.0 ~ 194.6 继续使用原本 185 循环剩余的部分
+    
     for (i = 12; i < 25; i++) { t = 185.0 + i * 0.4; if (i % 2 == 0) { AddNote(t, 0, 0); AddNote(t + 0.2, 1, 1); } else { AddNote(t, 3, 3); AddNote(t + 0.2, 2, 2); } }
     
     for (i = 0; i < 20; i++) { t = 195.0 + i * 0.4; AddNote(t, i % 2 == 0 ? 0 : 3, i % 2 == 0 ? 0 : 3); AddNote(t + 0.1, i % 2 == 0 ? 3 : 0, i % 2 == 0 ? 3 : 0); }
     for (i = 0; i < 12; i++) { t = 204.0 + i * 0.4; AddNote(t, 0, 0); AddNote(t + 0.1, 1, 1); AddNote(t + 0.2, 2, 2); AddNote(t + 0.3, 3, 3); }
     AddNote(209.0, 1, 1); AddNote(209.4, 2, 2); AddNote(209.8, 3, 3); 
     
-    // 配置X 10秒镜像段
     for (i = 0; i < 50; i++) { 
         t = 210.0 + i * 0.4; 
         if (i < 25) {
@@ -607,11 +826,12 @@ function triggerPause() {
     pauseModal.classList.add('show');
 }
 
-// 继续游戏：彻底解决音频异步重置问题
 function resumeGame() {
     if (state !== 'PAUSED') return;
     state = 'RESUMING';
     pauseModal.classList.remove('show');
+    
+    try { bgm.currentTime = pausedAudioPos; } catch(e) {}
     
     setTimeout(() => {
         state = 'GAME';
@@ -622,7 +842,6 @@ function resumeGame() {
     }, 300);
 }
 
-// 重新开始
 function restartGame() {
     if (state !== 'PAUSED') return;
     state = 'RESUMING';
@@ -654,7 +873,15 @@ function quitGame() {
     });
 }
 
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        if (state === 'GAME') triggerPause();
+    }
+});
+
 function handleGlobalStart(e) {
+    if (e.target.closest('#imBtn') || e.target.closest('#im-screen')) return;
+
     if (state === 'MENU' && startScreen.style.display !== 'none') {
         if (e.target.closest('button') || e.target.tagName.toLowerCase() === 'input' || e.target.closest('.modal') || e.target.id === 'pauseBtn') return;
         if (e.cancelable) e.preventDefault();
@@ -749,12 +976,10 @@ function gameLoop(time) {
     if (resumeCountdown > 0) {
         resumeCountdown -= dt;
         if (resumeCountdown <= 0) {
-            // 倒计时结束的瞬间，同步音频
             clockAnchor = performance.now() - pausedClock * 1000;
             game.clock = pausedClock;
             
             if (audioStarted) {
-                try { bgm.currentTime = pausedAudioPos; } catch(e) {}
                 bgm.play().catch(e => console.warn("恢复音乐失败:", e));
             } else if (pausedClock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2) {
                 audioStarted = true;
@@ -799,13 +1024,10 @@ function gameLoop(time) {
             });
         }
 
-        // ====== 修复：防系统背刺机制 ======
         if (audioStarted && bgm.paused && game.clock > 0.5 && game.clock < SONG_DURATION) {
             const p = bgm.play();
             if (p && p.catch) {
-                p.catch(() => {
-                    audioStarted = false; 
-                });
+                p.catch(() => { audioStarted = false; });
             }
         }
 
@@ -1096,7 +1318,7 @@ function drawGame(dt) {
 
     let isVignette = (game.clock >= 85.3 && game.clock <= 101.3);
     let isFog = (game.clock >= 210.0 && game.clock <= 231.0);
-    let isExtremeFog = (game.clock >= 202.0 && game.clock <= 202.8); // 提前到 202.0 秒
+    let isExtremeFog = (game.clock >= 202.0 && game.clock <= 203.3); 
     
     if (isVignette || isFog || isExtremeFog) {
         pauseBtn.style.opacity = "0.4";
@@ -1123,18 +1345,17 @@ function drawGame(dt) {
         }
     }
 
-    // 202.0 - 202.8 极速猛烈压迫黑雾
     if (isExtremeFog) {
-        let extProg = (game.clock - 202.0) / 0.8; // 提前0.5秒，总时长0.8秒
+        let extProg = (game.clock - 202.0) / 1.3;
         let extAlpha = 0;
-        if (extProg < 0.2) extAlpha = extProg / 0.2; 
-        else if (extProg > 0.6) extAlpha = (0.8 - extProg) / 0.2; 
+        if (extProg < 0.23) extAlpha = extProg / 0.23; 
+        else if (extProg > 0.77) extAlpha = (1.0 - extProg) / 0.23; 
         else extAlpha = 1.0;
         
-        extAlpha = Math.max(0, Math.min(1, extAlpha)) * 0.98; // 极其浓烈
+        extAlpha = Math.max(0, Math.min(1, extAlpha)) * 0.99; 
         
         if (extAlpha > 0) {
-            let shrink = easeOutQuad(extProg) * 180; // 挤压极深
+            let shrink = easeOutQuad(extProg) * 350; 
             
             let gradTop = ctx.createLinearGradient(0, 0, 0, shrink + 50);
             gradTop.addColorStop(0, `rgba(0,0,0,${extAlpha})`);
