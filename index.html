@@ -76,7 +76,7 @@
         /* ================= iM 系统样式 ================= */
         #imBtn {
             position: absolute; 
-            top: 135px; /* 往下移动了 30px，与账号框留出呼吸空间 */
+            top: 135px; /* 往下移动，与账号框留出呼吸空间 */
             left: 25px; /* 对齐账号框内的头像左侧 */
             width: 56px; height: 56px; border-radius: 50%;
             background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
@@ -287,7 +287,7 @@
         <img id="coverImg" src="cover.jpg" alt="">
         <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)); z-index:1;"></div>
 
-        <div class="menu-anim" style="animation-delay: 0.1s; position: absolute; top: 20px; left: 20px; display: flex; align-items: center; background: rgba(10, 15, 25, 0.6); padding: 10px 15px 10px 10px; border-radius: 12px; z-index: 20; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
+        <div class="menu-anim" style="animation-delay: 0.1s; position: absolute; top: 20px; left: 20px; display: flex; align-items: center; background: rgba(10, 15, 25, 0.6); padding: 15px 20px 15px 15px; border-radius: 12px; z-index: 20; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
             <img id="userAvatarDisplay" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #50c8ff; margin-right: 12px; background:#333;">
             <span id="userNameDisplay" style="font-size: 18px; color: white; font-weight: bold; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></span>
             <button class="switch-btn" onclick="switchUser(event)">换号</button>
@@ -723,7 +723,7 @@ function resetGameData() {
     feedbackYOffset = 0;
     isPlaying = false;
     audioStarted = false;
-    isAudioBroken = false; // 重置音频损坏状态
+    isAudioBroken = false;
     clockAnchor = 0;
     resumeCountdown = 0;
     pausedClock = 0;
@@ -742,6 +742,7 @@ function transitionTo(nextState, callback) {
     }, 400);
 }
 
+// 修复：彻底移除 load()，防止网络重新请求导致延迟
 function startGame() {
     if (state !== 'MENU') return;
     state = 'LOADING'; 
@@ -751,9 +752,6 @@ function startGame() {
     transitionTo('GAME', () => {
         pauseBtn.style.display = 'flex';
         bgm.pause();
-        // 强制刷新音频流，防止之前的状态遗留
-        bgm.src = 'V.mp3';
-        bgm.load();
         try { bgm.currentTime = 0; } catch(e) {}
         
         resetGameData();
@@ -850,9 +848,7 @@ function resumeGame() {
     state = 'RESUMING';
     pauseModal.classList.remove('show');
     
-    // 恢复时，给音频 300ms 缓冲
     if (!isAudioBroken) {
-        bgm.load(); // 强制重新加载以防状态损坏
         try { bgm.currentTime = pausedAudioPos; } catch(e) {}
     }
     
@@ -865,15 +861,13 @@ function resumeGame() {
     }, 300);
 }
 
+// 修复：彻底移除 load()，防止网络重新请求导致延迟
 function restartGame() {
     if (state !== 'PAUSED') return;
     state = 'RESUMING';
     pauseModal.classList.remove('show');
     
     bgm.pause();
-    // 修复：重开时彻底重置音频元素，解决“重开没声音”的Bug
-    bgm.src = 'V.mp3';
-    bgm.load();
     try { bgm.currentTime = 0; } catch(e) {}
     
     setTimeout(() => {
@@ -1039,26 +1033,28 @@ function gameLoop(time) {
     } else if (isPlaying) {
         game.clock = (performance.now() - clockAnchor) / 1000;
 
-        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && bgm.readyState >= 2 && !isAudioBroken) {
+        // 移除 readyState 严格限制，直接尝试 play()
+        if (!audioStarted && game.clock >= MUSIC_DELAY - AUDIO_LEAD && !isAudioBroken) {
             audioStarted = true;
             bgm.muted = false;
             bgm.currentTime = 0;
             const p = bgm.play();
             if (p && p.catch) p.catch(e => {
-                console.warn("音乐播放失败:", e);
-                audioStarted = false;
+                console.warn("音乐播放失败，尝试延迟重试:", e);
+                // 延迟重试一次
+                setTimeout(() => {
+                    bgm.play().catch(() => { isAudioBroken = true; });
+                }, 100);
             });
         }
 
-        // ====== 严重修复：防背刺/断流导致彻底无声 ======
+        // 防背刺机制
         if (audioStarted && bgm.paused && game.clock > 0.5 && game.clock < SONG_DURATION && !isAudioBroken) {
             const p = bgm.play();
             if (p && p.catch) {
                 p.catch(() => { 
-                    // 如果强制拉起失败，说明音频流已经彻底死锁
-                    console.warn("音频流失效，降级为纯系统时钟");
                     audioStarted = false; 
-                    isAudioBroken = true; // 标记损坏，不再重试，防止无限循环爆死
+                    isAudioBroken = true; 
                 });
             }
         }
