@@ -185,12 +185,22 @@ canvas{display:block;max-width:100%;max-height:100%;object-fit:contain;box-shado
 <audio id="bgm" src="V.mp3" preload="auto"></audio>
 
 <script>
-(function(){const el=document.getElementById('coverImg');if(!el)return;el.addEventListener('load',()=>console.log('[Cover] 加载成功'));el.addEventListener('error',()=>{console.error('[Cover] 加载失败');el.style.display='none'})})();
+(function(){const el=document.getElementById('coverImg');if(!el)return;el.addEventListener('load',()=>console.log('[Cover] OK'));el.addEventListener('error',()=>{console.error('[Cover] 失败');el.style.display='none'})})();
 function safeRoundRect(c,x,y,w,h,r){if(isNaN(x)||isNaN(y)||isNaN(w)||isNaN(h)||isNaN(r))return;if(w<2*r)r=w/2;if(h<2*r)r=h/2;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
 let isGameLoopRunning=false,isPlaying=false,clockAnchor=0;
-let audioStarted=false,audioUnlocked=false,isAudioBroken=false;
-let playPending=false,playPendingSince=0,playToken=0,audioSyncPending=false,audioFailCount=0;
-let lastBgTime=0,lastBgTimeChangeAt=0,bgTimeInitialized=false,lastHealthCheck=0,lastSeekTime=0;
+
+// ======================= 音频状态（重构版） =======================
+// ★ 关键原则：game.clock 由 performance.now() 唯一驱动，音频只允许被 seek 对齐
+let audioStarted=false,audioUnlocked=false;
+let playPending=false,playPendingSince=0,playToken=0,audioSyncPending=false;
+let audioFailCount=0;          // 连续失败次数
+let audioRetryAfter=0;         // 冷却重试时间戳
+let lastBgTimeChangeAt=0;      // 用于暂停检测
+let bgTimeInitialized=false;
+let lastHealthCheck=0;         // 健康检查节流
+let lastSeekTime=0;            // 大漂移 seek 间隔
+// ================================================================
+
 let pointerLanes={},lastTouchTime=0,resumeCountdown=0,pausedClock=0,pausedAudioPos=0;
 let currentUser=null,tempAvatarBase64='';
 const baseLikes=0;
@@ -216,7 +226,8 @@ const transitionMask=document.getElementById('transition-mask');
 const startScreen=document.getElementById('start-screen');
 const SCREEN_W=800,SCREEN_H=600,LANE_COUNT=4,TRACK_X=80,LANE_W=160,TRACK_W=LANE_COUNT*LANE_W,JUDGE_Y=500,NOTE_H=24,SCROLL_SPEED=750.0;
 const PERFECT_WINDOW=0.080,GOOD_WINDOW=0.140,BAD_WINDOW=0.200,CHART_OFFSET=-0.2;
-const MUSIC_DELAY=1.35,AUDIO_LEAD=0.2,SONG_DURATION=242.0,FINAL_CHORD_TIME=239.0+CHART_OFFSET;
+const MUSIC_DELAY=0.3;   // ★ 已改为 0.3（原 1.35）
+const SONG_DURATION=242.0,FINAL_CHORD_TIME=239.0+CHART_OFFSET;
 let state='MENU';
 let game={clock:-3.0,perfect:0,good:0,bad:0,miss:0,combo:0,maxCombo:0,weightSum:0,feedback:'',feedbackType:'',feedbackTimer:0,comboScale:1.0,screenShake:0,judgeLineGlow:0,bpmPulse:0,flashAlpha:0,notes:[],effects:[],keyHold:[false,false,false,false]};
 let lastTime=0,resultButtonY=560,reqAnimId=null;
@@ -229,6 +240,7 @@ window.addEventListener('resize',resize);resize();
 function getAPGradient(x,y,w){let g=ctx.createLinearGradient(x-(w||100)/2,y,x+(w||100)/2,y);g.addColorStop(0,'#ff4d4d');g.addColorStop(.2,'#ffcc00');g.addColorStop(.4,'#66ff66');g.addColorStop(.6,'#33ccff');g.addColorStop(.8,'#cc66ff');g.addColorStop(1,'#ff4d4d');return g}
 function getFCGradient(x,y,w){let g=ctx.createLinearGradient(x-(w||100)/2,y,x+(w||100)/2,y);g.addColorStop(0,'#b464ff');g.addColorStop(1,'#64c8ff');return g}
 
+// ==================== 音频核心（重构） ====================
 function unlockAudio(){
 if(audioUnlocked)return;audioUnlocked=true;
 try{bgm.load()}catch(e){}
@@ -237,74 +249,132 @@ const p=bgm.play();
 if(p&&p.then){p.then(()=>{if(state==='MENU'){bgm.pause();try{bgm.currentTime=0}catch(e){}}bgm.muted=false}).catch(()=>{bgm.muted=false})}
 else bgm.muted=false;
 }
+
 function startAudio(){
-if(isAudioBroken)return false;
 if(playPending)return false;
 if(!bgm.paused){audioSyncPending=true;return true}
+// 冷却期内不尝试
+if(performance.now()<audioRetryAfter)return false;
 bgm.muted=false;
-const myToken=++playToken;playPending=true;playPendingSince=performance.now();
+const myToken=++playToken;
+playPending=true;playPendingSince=performance.now();
 let p;
-try{p=bgm.play()}catch(e){playPending=false;console.warn('[Audio] play threw:',e);return false}
+try{p=bgm.play()}catch(e){
+playPending=false;
+console.warn('[Audio] play threw:',e);
+audioRetryAfter=performance.now()+2000;
+return false;
+}
 if(p&&p.then){
-p.then(()=>{if(myToken!==playToken)return;playPending=false;audioSyncPending=true;audioFailCount=0})
-.catch(err=>{if(myToken!==playToken)return;playPending=false;const name=err&&err.name;if(name!=='NotAllowedError'&&name!=='AbortError'){console.warn('[Audio] play failed:',err);audioFailCount++;if(audioFailCount>=5){isAudioBroken=true}}})
+p.then(()=>{
+if(myToken!==playToken)return;
+playPending=false;
+audioSyncPending=true;
+audioFailCount=0;
+}).catch(err=>{
+if(myToken!==playToken)return;
+playPending=false;
+const name=err&&err.name;
+if(name!=='NotAllowedError'&&name!=='AbortError'){
+console.warn('[Audio] play failed:',err);
+audioFailCount++;
+if(audioFailCount>=3){
+audioRetryAfter=performance.now()+2000;
+audioFailCount=0;
+console.warn('[Audio] cooldown 2s');
+}
+}
+});
 }else{playPending=false;audioSyncPending=true}
 return true;
 }
+
 function resetAudioState(){
-playToken++;playPending=false;playPendingSince=0;audioStarted=false;audioSyncPending=false;isAudioBroken=false;audioFailCount=0;
-lastBgTime=0;lastBgTimeChangeAt=0;bgTimeInitialized=false;lastHealthCheck=0;lastSeekTime=0;
+playToken++;
+playPending=false;playPendingSince=0;
+audioStarted=false;
+audioSyncPending=false;
+audioFailCount=0;
+audioRetryAfter=0;
+lastBgTimeChangeAt=0;
+bgTimeInitialized=false;
+lastHealthCheck=0;
+lastSeekTime=0;
 bgm.muted=false;
 try{bgm.pause();bgm.currentTime=0}catch(e){}
 }
-// ★★★ 音乐严格在 clock >= MUSIC_DELAY(1.35s) 时启动，去掉 AUDIO_LEAD 提前量
+
+// 首次启动 + 一次性同步（不反复改 game.clock）
 function updateMusic(){
-if(isAudioBroken)return;
-if(playPending&&performance.now()-playPendingSince>2500){console.warn('[Audio] playPending watchdog');playPending=false;playToken++}
-if(!audioStarted&&game.clock>=MUSIC_DELAY){
+// playPending 看门狗
+if(playPending&&performance.now()-playPendingSince>2500){
+playPending=false;playToken++;
+}
+
+// 严格在 clock >= MUSIC_DELAY 时启动
+if(!audioStarted&&game.clock>=MUSIC_DELAY&&performance.now()>=audioRetryAfter){
+if(bgm.readyState<2){
+try{bgm.load()}catch(e){}
+return; // 音频未就绪，下一帧再试
+}
 let target=Math.max(0,game.clock-MUSIC_DELAY);
 try{bgm.currentTime=target}catch(e){}
 if(startAudio())audioStarted=true;
 }
+
+// 一次性同步：只在音乐落后时校准，避免音符位置抖动
 if(audioStarted&&audioSyncPending&&!bgm.paused&&!playPending){
 audioSyncPending=false;
 let musicTime=bgm.currentTime+MUSIC_DELAY;
-let drift=musicTime-game.clock;
-if(Math.abs(drift)>0.03&&Math.abs(drift)<0.2){clockAnchor=performance.now()-musicTime*1000;game.clock=musicTime}
+let drift=musicTime-game.clock; // >0 超前，<0 落后
+if(drift<0&&drift>-0.25){
+// 音乐落后 0~0.25 秒，小幅校准 game.clock（视觉上看不出倒退）
+clockAnchor=performance.now()-musicTime*1000;
+game.clock=musicTime;
+}
+// 音乐超前或落后太多：忽略，避免抖动
 }
 }
+
+// 每 500ms 一次健康检查（极简，避免频繁 seek 卡顿）
 function updateMusicHealth(){
-if(!isPlaying||isAudioBroken)return;
+if(!isPlaying)return;
 if(game.clock<MUSIC_DELAY)return;
+if(!audioStarted)return;
 const now=performance.now();
-if(now-lastHealthCheck<300)return;
+if(now-lastHealthCheck<500)return;
 lastHealthCheck=now;
-const expected=Math.max(0,game.clock-MUSIC_DELAY);
-const cur=bgm.currentTime;
-const drift=cur-expected;
-const changed=Math.abs(cur-lastBgTime)>0.005;
-if(!bgTimeInitialized){lastBgTime=cur;lastBgTimeChangeAt=now;bgTimeInitialized=true;return}
-if(changed){lastBgTime=cur;lastBgTimeChangeAt=now}
-if(audioStarted&&!bgm.paused&&!changed&&(now-lastBgTimeChangeAt>1200)){
-console.warn('[Health] Fake playback, restart at',expected.toFixed(2));
-try{bgm.pause()}catch(e){}
+
+// 1. 意外暂停检测：持续 2 秒以上才恢复
+if(bgm.paused&&!playPending){
+if(!bgTimeInitialized){lastBgTimeChangeAt=now;bgTimeInitialized=true;return}
+if(now-lastBgTimeChangeAt>2000&&now>=audioRetryAfter){
+console.warn('[Health] paused 2s+, resume');
+let expected=Math.max(0,game.clock-MUSIC_DELAY);
 try{bgm.currentTime=expected}catch(e){}
 audioStarted=false;
 if(startAudio())audioStarted=true;
-lastBgTimeChangeAt=now;lastSeekTime=now;bgTimeInitialized=false;return;
+lastBgTimeChangeAt=now;
+bgTimeInitialized=false;
 }
-if(audioStarted&&bgm.paused&&!playPending){
-console.warn('[Health] Unexpected pause, resume at',expected.toFixed(2));
+return;
+}
+// 播放中：重置暂停检测状态
+bgTimeInitialized=false;
+
+// 2. 大漂移检测：>0.5 秒且间隔 3 秒才 seek（防止卡顿）
+if(!bgm.paused&&now-lastSeekTime>3000){
+let expected=Math.max(0,game.clock-MUSIC_DELAY);
+let cur=bgm.currentTime;
+let drift=cur-expected;
+if(Math.abs(drift)>0.5){
+console.warn('[Health] large drift',drift.toFixed(2),'seek');
 try{bgm.currentTime=expected}catch(e){}
-if(startAudio())audioStarted=true;
-lastSeekTime=now;bgTimeInitialized=false;return;
-}
-if(audioStarted&&!bgm.paused&&Math.abs(drift)>0.2&&now-lastSeekTime>1500){
-console.warn('[Health] Large drift',drift.toFixed(2),'correct');
-try{bgm.currentTime=expected}catch(e){}
-lastSeekTime=now;bgTimeInitialized=false;
+lastSeekTime=now;
 }
 }
+}
+// ========================================================
 
 function AddNote(time,lane,startLane){game.notes.push({time:time+CHART_OFFSET,lane:lane,startLane:startLane,judged:false,is_chord:false,is_multi:false})}
 function generateBeatmap(){
@@ -457,7 +527,7 @@ if(resumeCountdown>0){
 resumeCountdown-=dt;
 if(resumeCountdown<=0){
 clockAnchor=performance.now()-pausedClock*1000;game.clock=pausedClock;
-if(!isAudioBroken&&pausedClock>=MUSIC_DELAY){
+if(pausedClock>=MUSIC_DELAY){
 try{bgm.currentTime=Math.max(0,pausedClock-MUSIC_DELAY)}catch(e){}
 if(!audioStarted)audioStarted=true;
 if(startAudio())audioSyncPending=true;
