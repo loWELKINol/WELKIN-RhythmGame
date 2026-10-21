@@ -76,7 +76,7 @@
         /* ================= iM 系统样式 ================= */
         #imBtn {
             position: absolute; 
-            top: 105px; /* 移到账号框下方 */
+            top: 135px; /* 往下移动了 30px，与账号框留出呼吸空间 */
             left: 25px; /* 对齐账号框内的头像左侧 */
             width: 56px; height: 56px; border-radius: 50%;
             background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 80, 255, 0.4));
@@ -340,7 +340,7 @@ let clockAnchor = 0;
 let audioStarted = false;
 let audioUnlocked = false;
 let lastLaneHitTime = [0, 0, 0, 0];
-let isAudioBroken = false; // 新增：音频彻底损坏标记
+let isAudioBroken = false; // 音频彻底损坏标记
 
 let resumeCountdown = 0;
 let pausedClock = 0;
@@ -927,7 +927,7 @@ canvas.addEventListener('pointerdown', e => {
         
         if (lane >= 0 && lane < 4) {
             let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
-            if (Math.abs(x - laneCenter) <= 80) { // 从 70 改为 80
+            if (Math.abs(x - laneCenter) <= 80) { 
                 game.keyHold[lane] = true; 
                 judgeLane(lane);
             }
@@ -950,7 +950,7 @@ canvas.addEventListener('touchstart', e => {
             let lane = Math.floor((x - TRACK_X) / LANE_W);
             if (lane >= 0 && lane < 4) {
                 let laneCenter = TRACK_X + lane * LANE_W + LANE_W / 2;
-                if (Math.abs(x - laneCenter) <= 80) { // 从 70 改为 80
+                if (Math.abs(x - laneCenter) <= 80) { 
                     game.keyHold[lane] = true; 
                     judgeLane(lane);
                 }
