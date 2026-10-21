@@ -14,11 +14,10 @@
         }
         canvas { 
             display: block; 
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            top: 0; left: 0;
-            z-index: 2; 
+            max-width: 100%; max-height: 100%; 
+            object-fit: contain; 
+            box-shadow: 0 0 30px rgba(80, 200, 255, 0.15); 
+            position: relative; z-index: 2; 
         }
         
         #transition-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -235,14 +234,16 @@ const pauseModal = document.getElementById('pauseModal');
 const transitionMask = document.getElementById('transition-mask');
 const startScreen = document.getElementById('start-screen');
 
-let SCREEN_W = 800;
-let SCREEN_H = 600;
+// ====== 恢复固定分辨率 ======
+const SCREEN_W = 800;
+const SCREEN_H = 600;
 const LANE_COUNT = 4;
-let TRACK_X = 80;
+const TRACK_X = 80;
 const LANE_W = 160;
 const TRACK_W = LANE_COUNT * LANE_W;
-let JUDGE_Y = 500;
-let SCROLL_SPEED = 750.0; 
+const JUDGE_Y = 500;
+const NOTE_H = 24;
+const SCROLL_SPEED = 750.0; 
 
 const PERFECT_WINDOW = 0.080;
 const GOOD_WINDOW = 0.140;
@@ -269,48 +270,10 @@ let displayScore = 0;
 let displayAcc = 100.00;
 let feedbackYOffset = 0; 
 
-// ====== 严格保护屏幕尺寸计算，防止出现 NaN / Infinity 导致画布崩溃 ======
 function resize() {
-    let winW = window.innerWidth;
-    let winH = window.innerHeight;
-    
-    // 拦截任何非法尺寸
-    if (!winW || isNaN(winW) || winW < 10) winW = 800;
-    if (!winH || isNaN(winH) || winH < 10) winH = 600;
-    
-    const winRatio = winW / winH;
-
-    if (winRatio < 1) { // 竖屏
-        SCREEN_W = 800;
-        SCREEN_H = 800 / winRatio;
-    } else { // 横屏
-        SCREEN_H = 600;
-        SCREEN_W = 600 * winRatio;
-    }
-    
-    // 二次兜底，确保 SCREEN_W, SCREEN_H 绝对有限
-    if (isNaN(SCREEN_W) || !isFinite(SCREEN_W)) SCREEN_W = 800;
-    if (isNaN(SCREEN_H) || !isFinite(SCREEN_H)) SCREEN_H = 600;
-
-    TRACK_X = (SCREEN_W - TRACK_W) / 2;
-    if (isNaN(TRACK_X) || !isFinite(TRACK_X)) TRACK_X = 80;
-
-    JUDGE_Y = SCREEN_H - 120; 
-    if (isNaN(JUDGE_Y) || !isFinite(JUDGE_Y)) JUDGE_Y = 480;
-    
-    SCROLL_SPEED = 750 * (JUDGE_Y / 500);
-    if (isNaN(SCROLL_SPEED) || !isFinite(SCROLL_SPEED)) SCROLL_SPEED = 750;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = SCREEN_W * dpr;
-    canvas.height = SCREEN_H * dpr;
-    canvas.style.width = winW + 'px';
-    canvas.style.height = winH + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    if (pauseBtn) {
-        pauseBtn.style.left = Math.max(15, TRACK_X - 60) + 'px';
-    }
+    const scale = Math.min(window.innerWidth / SCREEN_W, window.innerHeight / SCREEN_H);
+    canvas.width = SCREEN_W; canvas.height = SCREEN_H;
+    canvas.style.width = SCREEN_W * scale + 'px'; canvas.style.height = SCREEN_H * scale + 'px';
 }
 window.addEventListener('resize', resize); 
 resize();
@@ -752,13 +715,11 @@ function gameLoop(time) {
         drawGame(dt);
         let cd = Math.ceil(resumeCountdown);
         if (cd >= 1 && cd <= 3) {
-            let textY = SCREEN_H / 2 + 60;
-            if (isNaN(textY)) textY = 360;
             ctx.textAlign = 'center'; 
             ctx.font = 'bold 180px "Microsoft YaHei"'; 
             ctx.fillStyle = '#ffe664'; 
             ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
-            ctx.fillText(cd, SCREEN_W/2, textY);
+            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
             ctx.shadowBlur = 0;
         }
         reqAnimId = requestAnimationFrame(gameLoop);
@@ -838,12 +799,6 @@ function gameLoop(time) {
 }
 
 function drawGame(dt) {
-    // 如果发生任何尺寸异常，重新计算尺寸
-    if (isNaN(SCREEN_W) || isNaN(SCREEN_H) || isNaN(TRACK_X) || isNaN(JUDGE_Y) || isNaN(SCROLL_SPEED)) {
-        resize();
-    }
-    if (isNaN(game.clock)) game.clock = -3.0;
-
     ctx.save();
     if (game.screenShake > 0.1) {
         ctx.translate((Math.random()-0.5)*game.screenShake, (Math.random()-0.5)*game.screenShake);
@@ -912,7 +867,7 @@ function drawGame(dt) {
     for (let n of game.notes) {
         if (n.judged) continue;
         let yPos = JUDGE_Y - (n.time - game.clock) * SCROLL_SPEED;
-        if (isNaN(yPos) || !isFinite(yPos)) continue; // 绝对防御
+        if (isNaN(yPos) || !isFinite(yPos)) continue;
         if (yPos < -NOTE_H*4 || yPos > SCREEN_H + NOTE_H*4) continue;
 
         let progress = Math.max(0, Math.min(1, (yPos - (-NOTE_H)) / (JUDGE_Y - (-NOTE_H))));
@@ -1012,10 +967,10 @@ function drawGame(dt) {
     ctx.textAlign = 'right';
     ctx.fillStyle = '#ffffff'; ctx.font = 'bold 34px Consolas, sans-serif';
     ctx.shadowBlur = 5; ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.fillText(Math.round(displayScore).toString().padStart(7, '0'), TRACK_X + TRACK_W + 30, 45);
+    ctx.fillText(Math.round(displayScore).toString().padStart(7, '0'), SCREEN_W - 25, 45);
     
     ctx.fillStyle = '#a0c0ff'; ctx.font = 'bold 20px Consolas, sans-serif';
-    ctx.fillText(displayAcc.toFixed(2) + '%', TRACK_X + TRACK_W + 30, 75);
+    ctx.fillText(displayAcc.toFixed(2) + '%', SCREEN_W - 25, 75);
     ctx.shadowBlur = 0;
 
     if (game.combo > 2) {
@@ -1068,17 +1023,17 @@ function drawGame(dt) {
         ctx.font = 'bold 180px Impact, sans-serif'; 
         ctx.fillStyle = `rgba(80, 200, 255, ${outroAlpha})`; 
         ctx.shadowBlur = 30; ctx.shadowColor = `rgba(80, 200, 255, ${outroAlpha})`;
-        ctx.fillText('V.', SCREEN_W/2, SCREEN_H * 0.4);
+        ctx.fillText('V.', SCREEN_W/2, 300);
         
         ctx.font = 'bold 50px "Arial Black", sans-serif'; 
         ctx.fillStyle = `rgba(220, 220, 220, ${outroAlpha})`; 
         ctx.shadowBlur = 10; ctx.shadowColor = `rgba(255, 255, 255, ${outroAlpha})`;
-        ctx.fillText('Welkin', SCREEN_W/2, SCREEN_H * 0.6);
+        ctx.fillText('Welkin', SCREEN_W/2, 420);
         
         ctx.font = '14px "Microsoft YaHei"'; 
         ctx.fillStyle = `rgba(150, 150, 150, ${outroAlpha})`; 
         ctx.shadowBlur = 0;
-        ctx.fillText('PRODUCED BY', SCREEN_W/2, SCREEN_H * 0.68);
+        ctx.fillText('PRODUCED BY', SCREEN_W/2, 460);
     }
 
     let isVignette = (game.clock >= 85.3 && game.clock <= 101.3);
@@ -1100,8 +1055,7 @@ function drawGame(dt) {
         vigAlpha = Math.min(1.0, Math.max(0.0, vigAlpha)) * 0.95; 
         
         if (vigAlpha > 0) {
-            let maxRadius = Math.max(SCREEN_W, SCREEN_H) * 0.8;
-            let vigGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, Math.min(SCREEN_W, SCREEN_H) * 0.3, SCREEN_W/2, SCREEN_H/2, maxRadius);
+            let vigGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, SCREEN_H * 0.2, SCREEN_W/2, SCREEN_H/2, SCREEN_W * 0.8);
             vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
             vigGrad.addColorStop(0.4, 'rgba(0,0,0,0)'); 
             vigGrad.addColorStop(1, `rgba(0,0,0,${vigAlpha})`);
@@ -1150,13 +1104,11 @@ function drawGame(dt) {
     if (game.clock < 0) {
         let cd = Math.ceil(-game.clock);
         if (cd >= 1 && cd <= 3) {
-            let textY = SCREEN_H / 2 + 60;
-            if (isNaN(textY)) textY = 360;
             ctx.textAlign = 'center'; 
             ctx.font = 'bold 180px "Microsoft YaHei"'; 
             ctx.fillStyle = '#ffe664'; 
             ctx.shadowBlur = 30; ctx.shadowColor = '#ffe664';
-            ctx.fillText(cd, SCREEN_W/2, textY);
+            ctx.fillText(cd, SCREEN_W/2, SCREEN_H/2 + 60);
             ctx.shadowBlur = 0;
         }
     }
@@ -1167,7 +1119,7 @@ function drawGame(dt) {
 function drawResult() {
     ctx.clearRect(0, 0, SCREEN_W, SCREEN_H);
     
-    let bgGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, 100, SCREEN_W/2, SCREEN_H/2, Math.max(SCREEN_W, SCREEN_H));
+    let bgGrad = ctx.createRadialGradient(SCREEN_W/2, SCREEN_H/2, 100, SCREEN_W/2, SCREEN_H/2, SCREEN_W);
     bgGrad.addColorStop(0, '#0a1525'); bgGrad.addColorStop(1, '#020305');
     ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
 
@@ -1175,16 +1127,10 @@ function drawResult() {
     let totalJudged = game.perfect + game.good + game.bad + game.miss;
     let acc = totalJudged === 0 ? 100.00 : ((game.perfect + game.good * 0.65) / totalJudged) * 100;
     
-    let y_title = SCREEN_H * 0.12;
-    let y_score = SCREEN_H * 0.32;
-    let y_acc = SCREEN_H * 0.40;
-    let y_panel = SCREEN_H * 0.48;
-    let y_footer = SCREEN_H * 0.88;
-
     ctx.textAlign = 'center'; 
     ctx.fillStyle = '#a0c0ff'; 
     ctx.font = 'bold 28px "Microsoft YaHei"'; 
-    ctx.fillText('RESULT', SCREEN_W/2, y_title);
+    ctx.fillText('RESULT', SCREEN_W/2, 90);
     
     ctx.font = 'bold 110px sans-serif'; 
     let scoreStr = score.toString().padStart(7, '0');
@@ -1192,60 +1138,60 @@ function drawResult() {
     let centerX = SCREEN_W / 2;
     
     if (game.perfect === game.notes.length) {
-        ctx.fillStyle = getAPGradient(centerX, y_score, scoreWidth);
+        ctx.fillStyle = getAPGradient(centerX, 210, scoreWidth);
         ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
     } else if (game.miss === 0) {
-        ctx.fillStyle = getFCGradient(centerX, y_score, scoreWidth);
+        ctx.fillStyle = getFCGradient(centerX, 210, scoreWidth);
         ctx.shadowColor = 'rgba(100, 200, 255, 0.8)';
     } else {
         ctx.fillStyle = '#ffffff'; 
         ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
     }
     ctx.shadowBlur = 30; 
-    ctx.fillText(scoreStr, centerX, y_score);
+    ctx.fillText(scoreStr, centerX, 210);
     ctx.shadowBlur = 0;
-
+    
     ctx.font = 'bold 32px monospace'; 
     ctx.fillStyle = '#50c8ff'; 
-    ctx.fillText('ACC  ' + acc.toFixed(2) + '%', SCREEN_W/2, y_acc);
+    ctx.fillText('ACC  ' + acc.toFixed(2) + '%', SCREEN_W/2, 260);
 
     ctx.fillStyle = 'rgba(10, 20, 30, 0.7)';
     ctx.beginPath();
-    ctx.roundRect(SCREEN_W/2 - 200, y_panel, 400, 180, 15);
+    ctx.roundRect(SCREEN_W/2 - 200, 300, 400, 180, 15);
     ctx.fill();
     ctx.strokeStyle = 'rgba(80, 200, 255, 0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
     ctx.textAlign = 'left'; ctx.font = 'bold 24px monospace';
-    ctx.fillStyle = '#b4ffb4'; ctx.fillText(`PERFECT: ${game.perfect}`, SCREEN_W/2 - 150, y_panel + 40);
-    ctx.fillStyle = '#96c8ff'; ctx.fillText(`GOOD:    ${game.good}`, SCREEN_W/2 - 150, y_panel + 80);
-    ctx.fillStyle = '#c89696'; ctx.fillText(`BAD:     ${game.bad}`, SCREEN_W/2 - 150, y_panel + 120);
-    ctx.fillStyle = '#ff9696'; ctx.fillText(`MISS:    ${game.miss}`, SCREEN_W/2 - 150, y_panel + 160);
+    ctx.fillStyle = '#b4ffb4'; ctx.fillText(`PERFECT: ${game.perfect}`, SCREEN_W/2 - 150, 340);
+    ctx.fillStyle = '#96c8ff'; ctx.fillText(`GOOD:    ${game.good}`, SCREEN_W/2 - 150, 380);
+    ctx.fillStyle = '#c89696'; ctx.fillText(`BAD:     ${game.bad}`, SCREEN_W/2 - 150, 420);
+    ctx.fillStyle = '#ff9696'; ctx.fillText(`MISS:    ${game.miss}`, SCREEN_W/2 - 150, 460);
 
     if (game.perfect === game.notes.length) {
         ctx.textAlign = 'center'; 
         ctx.font = 'bold 80px Impact'; 
         ctx.fillStyle = '#ffff64'; 
         ctx.shadowBlur = 30; ctx.shadowColor = '#ffff64';
-        ctx.fillText("ALL PERFECT", SCREEN_W/2, y_panel + 250);
+        ctx.fillText("ALL PERFECT", SCREEN_W/2, 550);
         ctx.shadowBlur = 0;
     } else if (game.bad === 0 && game.miss === 0) {
         ctx.textAlign = 'center'; 
         ctx.font = 'bold 80px Impact'; 
         ctx.fillStyle = '#64c8ff'; 
         ctx.shadowBlur = 30; ctx.shadowColor = '#64c8ff';
-        ctx.fillText("FULL COMBO", SCREEN_W/2, y_panel + 250);
+        ctx.fillText("FULL COMBO", SCREEN_W/2, 550);
         ctx.shadowBlur = 0;
     }
 
     ctx.textAlign = 'center'; 
     ctx.font = 'bold 30px sans-serif'; 
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('▲', SCREEN_W/2, y_footer - 5); 
+    ctx.fillText('▲', SCREEN_W/2, resultButtonY - 5); 
     ctx.font = '16px "Microsoft YaHei"'; 
     ctx.fillStyle = '#aaa';
-    ctx.fillText('返回主界面', SCREEN_W/2, y_footer + 20);
+    ctx.fillText('返回主界面', SCREEN_W/2, resultButtonY + 20);
 }
 </script>
 </body>
