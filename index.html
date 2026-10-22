@@ -188,8 +188,6 @@ canvas{display:block;max-width:100%;max-height:100%;object-fit:contain;box-shado
 (function(){const el=document.getElementById('coverImg');if(!el)return;el.addEventListener('load',()=>console.log('[Cover] OK'));el.addEventListener('error',()=>{console.error('[Cover] 失败');el.style.display='none'})})();
 function safeRoundRect(c,x,y,w,h,r){if(isNaN(x)||isNaN(y)||isNaN(w)||isNaN(h)||isNaN(r))return;if(w<2*r)r=w/2;if(h<2*r)r=h/2;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
 let isGameLoopRunning=false,isPlaying=false,clockAnchor=0;
-
-// ======================= 音频状态 =======================
 let audioStarted=false,audioUnlocked=false;
 let playPending=false,playPendingSince=0,playToken=0,audioSyncPending=false;
 let audioFailCount=0;
@@ -198,8 +196,6 @@ let lastBgTimeChangeAt=0;
 let bgTimeInitialized=false;
 let lastHealthCheck=0;
 let lastSeekTime=0;
-// ======================================================
-
 let pointerLanes={},lastTouchTime=0,resumeCountdown=0,pausedClock=0,pausedAudioPos=0;
 let resumePendingStart=false;
 let resumePendingTimer=0;
@@ -240,12 +236,8 @@ function resize(){const s=Math.min(window.innerWidth/SCREEN_W,window.innerHeight
 window.addEventListener('resize',resize);resize();
 function getAPGradient(x,y,w){let g=ctx.createLinearGradient(x-(w||100)/2,y,x+(w||100)/2,y);g.addColorStop(0,'#ff4d4d');g.addColorStop(.2,'#ffcc00');g.addColorStop(.4,'#66ff66');g.addColorStop(.6,'#33ccff');g.addColorStop(.8,'#cc66ff');g.addColorStop(1,'#ff4d4d');return g}
 function getFCGradient(x,y,w){let g=ctx.createLinearGradient(x-(w||100)/2,y,x+(w||100)/2,y);g.addColorStop(0,'#b464ff');g.addColorStop(1,'#64c8ff');return g}
-
-// ★ 防止 iPad Safari 边缘滑动后退手势导致页面重载
 if(!history.state||!history.state.__game){try{history.pushState({__game:true},'',location.href)}catch(e){}}
 window.addEventListener('popstate',()=>{try{history.pushState({__game:true},'',location.href)}catch(e){}if(state==='GAME')triggerPause()});
-
-// ==================== 音频核心 ====================
 function unlockAudio(){
 if(audioUnlocked)return;audioUnlocked=true;
 try{bgm.load()}catch(e){}
@@ -254,7 +246,6 @@ const p=bgm.play();
 if(p&&p.then){p.then(()=>{if(state==='MENU'){bgm.pause();try{bgm.currentTime=0}catch(e){}}bgm.muted=false}).catch(()=>{bgm.muted=false})}
 else bgm.muted=false;
 }
-
 function startAudio(){
 if(playPending)return false;
 if(!bgm.paused){audioSyncPending=true;return true}
@@ -288,7 +279,6 @@ if(audioFailCount>=3){audioRetryAfter=performance.now()+2000;audioFailCount=0;}
 }else{playPending=false;audioSyncPending=true}
 return true;
 }
-
 function resetAudioState(){
 playToken++;
 playPending=false;playPendingSince=0;
@@ -305,11 +295,9 @@ resumePendingTimer=0;
 bgm.muted=false;
 try{bgm.pause();bgm.currentTime=0}catch(e){}
 }
-
 function updateMusic(){
 if(playPending&&performance.now()-playPendingSince>2500){playPending=false;playToken++;}
 if(!audioStarted&&game.clock>=MUSIC_DELAY&&performance.now()>=audioRetryAfter){
-// ★ 移除 readyState<2 的死循环，直接尝试启动（play() 会自己等待就绪）
 let target=Math.max(0,game.clock-MUSIC_DELAY);
 try{bgm.currentTime=target}catch(e){}
 if(startAudio())audioStarted=true;
@@ -321,7 +309,6 @@ let drift=musicTime-game.clock;
 if(drift<0&&drift>-0.25){clockAnchor=performance.now()-musicTime*1000;game.clock=musicTime;}
 }
 }
-
 function updateMusicHealth(){
 if(!isPlaying)return;
 if(game.clock<MUSIC_DELAY)return;
@@ -353,18 +340,41 @@ lastSeekTime=now;
 }
 }
 }
-// ======================================================
-
 function AddNote(time,lane,startLane){game.notes.push({time:time+CHART_OFFSET,lane:lane,startLane:startLane,judged:false,is_chord:false,is_multi:false})}
 function generateBeatmap(){
 game.notes=[];let t,i,j;
 for(t=2.0;t<7.0;t+=0.8){AddNote(t,0,0);AddNote(t+0.4,3,3)}
 AddNote(7.2,1,1);AddNote(7.6,2,2);
-for(i=0;i<15;i++){t=8.0+i*0.4;AddNote(t,i%4,i%4);if(i%3==0)AddNote(t,(i+1)%4,(i+1)%4);else AddNote(t+0.2,(i*2)%4,(i*2)%4)}
-AddNote(14.4,0,0);AddNote(14.8,3,3);
-for(i=0;i<27;i++){t=15.0+i*0.4;if(i%2==0){AddNote(t,3,3);AddNote(t+0.1,2,2);AddNote(t+0.2,1,1)}else{AddNote(t,0,0);AddNote(t+0.2,3,3)}}
+// 8.0~10.4 原节奏
+for(i=0;i<6;i++){t=8.0+i*0.4;AddNote(t,i%4,i%4);if(i%3==0)AddNote(t,(i+1)%4,(i+1)%4);else AddNote(t+0.2,(i*2)%4,(i*2)%4)}
+// ★ 10.5~13.5 加强：双押+单键，四轨分布
+AddNote(10.6,0,0);AddNote(10.6,3,3);
+AddNote(10.8,1,1);
+AddNote(11.0,2,2);
+AddNote(11.2,0,0);
+AddNote(11.4,1,1);AddNote(11.4,2,2);
+AddNote(11.6,3,3);
+AddNote(11.8,0,0);
+AddNote(12.0,1,1);AddNote(12.0,3,3);
+AddNote(12.2,2,2);
+AddNote(12.4,0,0);
+AddNote(12.6,1,1);AddNote(12.6,2,2);
+AddNote(12.8,3,3);
+AddNote(13.0,0,0);
+AddNote(13.2,1,1);AddNote(13.2,3,3);
+AddNote(13.4,2,2);
+AddNote(13.6,0,0);
+AddNote(13.8,1,1);AddNote(13.8,2,2);
+// ★ Z段：≤19.8 镜像Y轴，>19.8 保持
+function addZ(time,lane,startLane){if(time<=19.8)AddNote(time,3-lane,3-startLane);else AddNote(time,lane,startLane)}
+addZ(14.4,0,0);addZ(14.8,3,3);
+for(i=0;i<27;i++){t=15.0+i*0.4;if(i%2==0){addZ(t,3,3);addZ(t+0.1,2,2);addZ(t+0.2,1,1)}else{addZ(t,0,0);addZ(t+0.2,3,3)}}
+// 27~33 原双押
 for(i=0;i<8;i++){t=27.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t,3,3)}else{AddNote(t,1,1);AddNote(t,2,2)}}
 for(i=0;i<8;i++){t=30.0+i*0.4;if(i%2==0){AddNote(t,0,0);AddNote(t,2,2)}else{AddNote(t,1,1);AddNote(t,3,3)}}
+// ★ 双押间加单键，四轨轮流，跳过29.8↔30.0与32.8↔33.0窄间隙
+for(i=0;i<7;i++){t=27.2+i*0.4;AddNote(t,i%4,i%4)}
+for(i=0;i<7;i++){t=30.2+i*0.4;AddNote(t,(i+3)%4,(i+3)%4)}
 AddNote(33.0,0,0);AddNote(33.0,1,1);AddNote(33.0,2,2);AddNote(33.0,3,3);
 for(i=0;i<25;i++){t=34.0+i*0.4;if(i%4==0){AddNote(t,0,0);AddNote(t,3,3)}else if(i%2==0){AddNote(t,1,1);AddNote(t,2,2)}else AddNote(t,(i*3)%4,(i*3)%4)}
 for(i=0;i<35;i++){t=45.0+i*0.4;if(i%3==0){AddNote(t,0,0);AddNote(t+0.2,1,1)}else if(i%3==1){AddNote(t,3,3);AddNote(t+0.2,2,2)}else{AddNote(t,0,0);AddNote(t+0.2,3,3)}}
@@ -398,7 +408,6 @@ for(i=0;i<15;i++){t=233.0+i*0.4;AddNote(t,(i%2==0)?0:3,(i%2==0)?0:3);AddNote(t+0
 AddNote(239.0,0,0);AddNote(239.0,1,1);AddNote(239.0,2,2);AddNote(239.0,3,3);
 for(i=0;i<game.notes.length;i++){let c=0;for(j=0;j<game.notes.length;j++){if(Math.abs(game.notes[i].time-game.notes[j].time)<0.03)c++}if(c>=2)game.notes[i].is_chord=true;if(c>=3)game.notes[i].is_multi=true}
 }
-
 function resetGameData(){
 game={clock:-3.0,perfect:0,good:0,bad:0,miss:0,combo:0,maxCombo:0,weightSum:0,feedback:'',feedbackType:'',feedbackTimer:0,comboScale:1.0,screenShake:0,judgeLineGlow:0,bpmPulse:0,flashAlpha:0,notes:[],effects:[],keyHold:[false,false,false,false]};
 generateBeatmap();displayScore=0;displayAcc=100.00;feedbackYOffset=0;isPlaying=false;clockAnchor=0;resumeCountdown=0;pausedClock=0;pausedAudioPos=0;pointerLanes={};
@@ -448,10 +457,8 @@ unlockAudio();startGame();
 window.addEventListener('mousedown',handleGlobalStart);
 window.addEventListener('touchstart',handleGlobalStart,{passive:false});
 canvas.addEventListener('touchmove',e=>{if(e.cancelable)e.preventDefault()},{passive:false});
-
 function handleCanvasDown(clientX,clientY,id){
 if(state==='GAME'&&game.clock>=0&&resumeCountdown<=0&&!resumePendingStart){
-// ★ 关键：用户手势上下文恢复丢失的音频（iPad Safari 需要）
 if(audioStarted&&bgm.paused&&!playPending){
 console.warn('[Audio] user gesture restore');
 let expected=Math.max(0,game.clock-MUSIC_DELAY);
@@ -486,7 +493,6 @@ if(e.cancelable)e.preventDefault();
 handleCanvasDown(e.clientX,e.clientY,'mouse');
 });
 canvas.addEventListener('mouseup',e=>{if(performance.now()-lastTouchTime<500)return;handleCanvasUp('mouse')});
-
 window.addEventListener('keydown',e=>{
 if(state==='GAME'&&game.clock>=0&&resumeCountdown<=0&&!e.repeat){
 if(e.key==='c'||e.key==='C'){game.keyHold[0]=true;judgeLane(0)}
@@ -494,7 +500,6 @@ if(e.key==='v'||e.key==='V'){game.keyHold[1]=true;judgeLane(1)}
 if(e.key==='b'||e.key==='B'){game.keyHold[2]=true;judgeLane(2)}
 if(e.key==='n'||e.key==='N'){game.keyHold[3]=true;judgeLane(3)}
 }
-// ★ R 键仅在暂停时可用，防止游戏中误触返回主界面
 if((e.key==='r'||e.key==='R')&&state==='PAUSED')returnToMenu();
 if(e.key==='Escape'&&state==='GAME')triggerPause();
 });
@@ -505,7 +510,6 @@ if(e.key==='b'||e.key==='B')game.keyHold[2]=false;
 if(e.key==='n'||e.key==='N')game.keyHold[3]=false;
 });
 function returnToMenu(){if(state==='MENU')return;state='LOADING';isGameLoopRunning=false;if(reqAnimId)cancelAnimationFrame(reqAnimId);transitionTo('MENU',()=>{pauseBtn.style.display='none';resetAudioState();showStartScreen()})}
-
 function gameLoop(time){
 if(!isGameLoopRunning||state!=='GAME')return;
 let dt=(time-lastTime)/1000;lastTime=time;
@@ -532,17 +536,16 @@ ctx.fillText(cd,SCREEN_W/2,SCREEN_H/2+60);ctx.shadowBlur=0;
 }
 reqAnimId=requestAnimationFrame(gameLoop);return;
 }
-// ★ 恢复：等音频真正就绪，用 bgm.currentTime 反推视觉时钟（彻底解决音画不同步）
 if(resumePendingStart){
 const targetAudioPos=Math.max(0,pausedClock-MUSIC_DELAY);
 const audioReady=!playPending&&!bgm.paused&&Math.abs(bgm.currentTime-targetAudioPos)<0.2;
 resumePendingTimer+=dt;
 if(audioReady||resumePendingTimer>3.0){
 if(audioReady){
-game.clock=bgm.currentTime+MUSIC_DELAY;   // ★ 用音频实际位置校准视觉时钟
+game.clock=bgm.currentTime+MUSIC_DELAY;
 }else{
 game.clock=pausedClock;
-audioStarted=false;                        // ★ 音频没就绪：让 updateMusic 重新尝试
+audioStarted=false;
 }
 clockAnchor=performance.now()-game.clock*1000;
 resumePendingStart=false;
@@ -578,7 +581,6 @@ drawResult();return;
 drawGame(dt);
 reqAnimId=requestAnimationFrame(gameLoop);
 }
-
 function drawGame(dt){
 ctx.save();
 if(game.screenShake>0.1)ctx.translate((Math.random()-0.5)*game.screenShake,(Math.random()-0.5)*game.screenShake);
@@ -748,7 +750,6 @@ ctx.fillText(cd,SCREEN_W/2,SCREEN_H/2+60);ctx.shadowBlur=0;
 }
 ctx.restore();
 }
-
 function drawResult(){
 ctx.clearRect(0,0,SCREEN_W,SCREEN_H);
 let bgGrad=ctx.createRadialGradient(SCREEN_W/2,SCREEN_H/2,100,SCREEN_W/2,SCREEN_H/2,SCREEN_W);
